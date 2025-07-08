@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-import os
-import sys
 import logging
-from pathlib import Path
 
 # Set up logging
 logging.basicConfig(
