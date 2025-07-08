@@ -193,16 +193,19 @@ class AppController:
         artwork_image: bytes | None = self.control_images["now_playing_empty"]
         if self.player.is_playing:
             # If the player is playing, use the album artwork
-            artwork_image = album.pause_image
+            artwork_image = album.play_image
         elif self.player.is_paused:
             # If the player is paused, use the album artwork with a different icon
-            artwork_image = album.play_image
+            artwork_image = album.pause_image
         elif self.player.is_stopped:
             # If the player is stopped, use the album artwork with a different icon
-            artwork_image = album.play_image
+            artwork_image = album.stop_image
 
         self.deck_controller.set_button(
-            3, image=artwork_image, action=lambda a=album: self.play_pause_media(a)
+            3,
+            image=artwork_image,
+            action=lambda a=album: self.play_pause_media(a),
+            long_press_action=self.stop_media,
         )
 
     @start_carousel_decorator

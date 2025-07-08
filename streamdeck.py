@@ -1,4 +1,6 @@
 import logging
+import threading
+import time
 from collections.abc import Callable
 
 from PIL.Image import Image  # type: ignore
@@ -10,6 +12,8 @@ from StreamDeck.ImageHelpers import PILHelper  # type: ignore
 logger = logging.getLogger(__name__)
 # StreamDeckController.py
 
+LONG_PRESS_THRESHOLD = 1.0  # seconds
+
 
 class StreamDeckController:
     device_manager: DeviceManager | None = None
@@ -19,6 +23,13 @@ class StreamDeckController:
     def __init__(self):
         self.device_manager = DeviceManager()
         self.keypress_callbacks = {}
+        self.long_press_callbacks = {}
+
+        # Long press tracking
+        self.key_press_times = {}  # Track when keys were pressed
+        self.long_press_timers = {}  # Track active long press timers
+        self.long_press_triggered = {}  # Track if long press was already triggered
+
         deck = (
             self.device_manager.enumerate()[0]
             if self.device_manager.enumerate()
@@ -95,11 +106,62 @@ class StreamDeckController:
     def key_pressed(self, deck: StreamDeck, key: int, state: bool):
         """Handle key press events."""
         logger.info(f"Key {key} {'pressed' if state else 'released'}.")
-        if state and key in self.keypress_callbacks:
+
+        if state:  # Key pressed down
+            self._handle_key_press(key)
+        else:  # Key released
+            self._handle_key_release(key)
+
+    def _handle_key_press(self, key: int):
+        """Handle key press down event."""
+        # Record the press time
+        self.key_press_times[key] = time.time()
+        self.long_press_triggered[key] = False
+
+        # Cancel any existing timer for this key
+        if key in self.long_press_timers:
+            self.long_press_timers[key].cancel()
+
+        # Start a timer for long press detection
+        if key in self.long_press_callbacks:
+            timer = threading.Timer(
+                LONG_PRESS_THRESHOLD, self._trigger_long_press, args=[key]
+            )
+            self.long_press_timers[key] = timer
+            timer.start()
+
+    def _handle_key_release(self, key: int):
+        """Handle key release event."""
+        # Cancel the long press timer
+        if key in self.long_press_timers:
+            self.long_press_timers[key].cancel()
+            del self.long_press_timers[key]
+
+        # Check if this was a long press or regular press
+        if key in self.long_press_triggered and self.long_press_triggered[key]:
+            # Long press was already triggered, don't trigger regular press
+            logger.info(f"Long press completed for key {key}")
+        else:
+            # Regular press - trigger the callback
+            if key in self.keypress_callbacks:
+                try:
+                    self.keypress_callbacks[key]()
+                except Exception as e:
+                    logger.error(f"Error in key callback for key {key}: {e}")
+
+        # Clean up tracking data
+        self.key_press_times.pop(key, None)
+        self.long_press_triggered.pop(key, None)
+
+    def _trigger_long_press(self, key: int):
+        """Trigger long press callback for a key."""
+        if key in self.long_press_callbacks:
+            self.long_press_triggered[key] = True
             try:
-                self.keypress_callbacks[key]()
+                logger.info(f"Long press triggered for key {key}")
+                self.long_press_callbacks[key]()
             except Exception as e:
-                logger.error(f"Error in key callback for key {key}: {e}")
+                logger.error(f"Error in long press callback for key {key}: {e}")
 
     def register_key_callback(self, key_index: int, callback: Callable):
         """Register a callback for a specific key index."""
@@ -109,9 +171,22 @@ class StreamDeckController:
         else:
             raise IndexError("Key index out of range.")
 
+    def register_long_press_callback(self, key_index: int, callback: Callable):
+        """Register a long press callback for a specific key index."""
+        if 0 <= key_index < self.key_count:
+            self.long_press_callbacks[key_index] = callback
+            logger.info(f"Long press callback registered for key {key_index}.")
+        else:
+            raise IndexError("Key index out of range.")
+
     def close(self):
         """Close the Stream Deck connection."""
         if self.is_connected:
+            # Cancel all active long press timers
+            for timer in self.long_press_timers.values():
+                timer.cancel()
+            self.long_press_timers.clear()
+
             self.deck.reset()
             self.deck.close()
             self.is_connected = False
@@ -129,12 +204,15 @@ class StreamDeckController:
         key_index: int,
         image: bytes | Image | None,
         action: Callable | None = None,
+        long_press_action: Callable | None = None,
     ) -> None:
         """Set a button on the Stream Deck."""
         if image is not None:
             self.set_key_image(key_index, image)
         if action is not None:
             self.register_key_callback(key_index, action)
+        if long_press_action is not None:
+            self.register_long_press_callback(key_index, long_press_action)
         logger.info(f"Button set: (Key {key_index})")
 
 
