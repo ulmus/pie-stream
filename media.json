@@ -3,22 +3,41 @@
         {
             "name": "SR P1",
             "artwork": "./album_art/p1.jpg",
-            "path": "https://live1.sr.se/p1-mp3-96"
+            "path": "https://live1.sr.se/p1-mp3-96",
+            "type": "stream"
         },
         {
             "name": "SR P2",
             "artwork": "./album_art/p2.jpg",
-            "path": "https://live1.sr.se/p2-mp3-96"
+            "path": "https://live1.sr.se/p2-mp3-96",
+            "type": "stream"
         },
         {
             "name": "SR P3",
             "artwork": "./album_art/p3.jpg",
-            "path": "https://live1.sr.se/p3-mp3-96"
+            "path": "https://live1.sr.se/p3-mp3-96",
+            "type": "stream"
         },
         {
             "name": "NRJ",
             "artwork": "./album_art/nrj.png",
-            "path": "https://live-bauerse-fm.sharp-stream.com/nrj_instreamtest_se_mp3"
+            "path": "https://live-bauerse-fm.sharp-stream.com/nrj_instreamtest_se_mp3",
+            "type": "stream"
+        },
+        {
+            "name": "Historierummet",
+            "artwork": "../music/historierummet/historierummet.jpg",
+            "type": "album",
+            "tracks": [
+                "../music/historierummet/historierummet_i_barnradion_alfred_nobel__dynamitens_och_20250313_1136224394.mp3",
+                "../music/historierummet/historierummet_i_barnradion_cixi__kinas_hardhanta_kejsari_20250516_1126454741.mp3",
+                "../music/historierummet/historierummet_i_barnradion_galileo_galilei__den_modiga_s_20250507_1023586980.mp3",
+                "../music/historierummet/historierummet_i_barnradion_karl_marx__rebellen_med_penna_20250526_1309280137.mp3",
+                "../music/historierummet/historierummet_i_barnradion_liliuokalani__hawaiis_sista_20250401_1127305391.mp3",
+                "../music/historierummet/historierummet_i_barnradion_ludvig_xiv__frankrikes_lyxiga_20250507_1016035091.mp3",
+                "../music/historierummet/historierummet_i_barnradion_marilyn_monroe__filmhistorien_20250320_1359467979.mp3",
+                "../music/historierummet/historierummet_i_barnradion_selma_lagerlof__hela_sveriges_20250507_1019103946.mp3"
+            ]
         }
     ]
 }

@@ -2,6 +2,7 @@ import json
 import logging
 import threading
 from time import sleep
+from typing import Literal
 
 from PIL import Image  # type: ignore
 
@@ -46,11 +47,16 @@ class Album:
         path: str,
         deck: StreamDeckController,
         album_art: str | None = None,
+        type: Literal["album", "playlist", "stream"] = "stream",
+        tracks: list[str] | None = None,
     ) -> None:
         self.name = name
         self.path = path
         self.album_art = album_art
         self.deck = deck
+        self.type = type
+        self.tracks = tracks
+        self.current_track_index = 0
         self.set_artwork_images(album_art)
 
     def to_dict(self) -> dict:
@@ -58,6 +64,7 @@ class Album:
             "name": self.name,
             "path": self.path,
             "album_art": self.album_art,
+            "type": self.type,
         }
 
     def set_artwork_images(self, album_art: str | None) -> None:
@@ -90,6 +97,31 @@ class Album:
                 icon=self.stop_icon,
             )
 
+    def reset_track_index(self) -> None:
+        """Reset the current track index to the first track."""
+        self.current_track_index = 0
+
+    def next_track(self) -> None:
+        """Move to the next track in the album."""
+        if self.tracks and self.current_track_index < len(self.tracks) - 1:
+            self.current_track_index += 1
+        else:
+            logger.warning("No more tracks available or no tracks defined.")
+
+    def previous_track(self) -> None:
+        """Move to the previous track in the album."""
+        if self.tracks and self.current_track_index > 0:
+            self.current_track_index -= 1
+        else:
+            logger.warning("No previous track available or no tracks defined.")
+
+    def get_path(self) -> str:
+        """Get the path of the album."""
+        if self.tracks:
+            return self.tracks[self.current_track_index]
+        # If no tracks are defined, return the album path
+        return self.path
+
 
 class AppController:
     def __init__(self) -> None:
@@ -112,6 +144,16 @@ class AppController:
             ),
             "previous": self.deck_controller.convert_image(
                 Image.open("./icons/circle-arrow-left-solid.png"),
+                margins=CONTROL_BUTTON_MARGINS,
+                background="teal",
+            ),
+            "next_track": self.deck_controller.convert_image(
+                Image.open("./icons/angles-right-solid.png"),
+                margins=CONTROL_BUTTON_MARGINS,
+                background="teal",
+            ),
+            "previous_track": self.deck_controller.convert_image(
+                Image.open("./icons/angles-left-solid.png"),
                 margins=CONTROL_BUTTON_MARGINS,
                 background="teal",
             ),
@@ -141,14 +183,15 @@ class AppController:
 
         album_items = config_data.get("albums", [])
         for album_item in album_items:
+            type = album_item.get("type", "stream")
             name = album_item.get("name", "Unknown Album")
             path = album_item.get("path", None)
             album_art = album_item.get("artwork", None)
-            if not path:
-                logger.warning(f"Album '{name}' has no path defined, skipping.")
-                continue
+            tracks = album_item.get("tracks", None)
             # Create an Album instance and add it to the list
-            album = Album(name, path, self.deck_controller, album_art)
+            album = Album(
+                name, path, self.deck_controller, album_art, tracks=tracks, type=type
+            )
             self.albums.append(album)
         # generate byte images for each album
         self.album_count = len(self.albums)
@@ -173,12 +216,34 @@ class AppController:
 
     def setup_control_buttons(self) -> None:
         """Set up control buttons for the Stream Deck."""
-        self.deck_controller.set_button(
-            4, image=self.control_images["previous"], action=self.carousel_previous
-        )
-        self.deck_controller.set_button(
-            5, image=self.control_images["next"], action=self.carousel_next
-        )
+        if (
+            self.current_playing_album
+            and self.current_playing_album.type == "album"
+            and self.player.is_playing
+        ):
+            # If the current playing album is an album and is playing, set up next/previous track buttons
+            self.deck_controller.set_button(
+                4,
+                image=self.control_images["previous_track"],
+                action=self.play_previous_track,
+            )
+            self.deck_controller.set_button(
+                5,
+                image=self.control_images["next_track"],
+                action=self.play_next_track,
+            )
+        else:
+            # If not playing an album, set up next/previous carousel buttons
+            self.deck_controller.set_button(
+                4,
+                image=self.control_images["previous"],
+                action=self.carousel_previous,
+            )
+            self.deck_controller.set_button(
+                5,
+                image=self.control_images["next"],
+                action=self.carousel_next,
+            )
 
     def setup_now_playing_button(self) -> None:
         """Set up the 'Now Playing' button."""
@@ -231,13 +296,34 @@ class AppController:
         )
         self.setup_media_buttons()
 
+    def play_next_track(self) -> None:
+        """Play the next track in the current album."""
+        if self.current_playing_album and self.current_playing_album.type == "album":
+            self.current_playing_album.next_track()
+            self.play_media(self.current_playing_album)
+            logger.info(f"Playing next track: {self.current_playing_album.get_path()}")
+        else:
+            logger.warning("No album is currently playing or not an album type.")
+
+    def play_previous_track(self) -> None:
+        """Play the previous track in the current album."""
+        if self.current_playing_album and self.current_playing_album.type == "album":
+            self.current_playing_album.previous_track()
+            self.play_media(self.current_playing_album)
+            logger.info(
+                f"Playing previous track: {self.current_playing_album.get_path()}"
+            )
+        else:
+            logger.warning("No album is currently playing or not an album type.")
+
     @start_carousel_decorator
     def play_media(self, album) -> None:
         """Play media from the specified album."""
-        success = self.player.play(album.path)
+        success = self.player.play(album.get_path())
         if success:
             self.current_playing_album = album
             self.setup_now_playing_button()
+            self.setup_control_buttons()
             logger.info(f"Playing media: {album.name}")
         else:
             logger.error(
@@ -260,6 +346,8 @@ class AppController:
         """Stop the currently playing media."""
         if self.player.is_playing or self.player.is_paused:
             self.player.stop()
+            if self.current_playing_album:
+                self.current_playing_album.reset_track_index()
             self.current_playing_album = None
             sleep(0.1)  # Allow time for the player to stop
             self.setup_now_playing_button()
