@@ -1,7 +1,10 @@
 import logging
 
+from PIL.Image import Image  # type: ignore
+
 from StreamDeck.DeviceManager import DeviceManager  # type: ignore
 from StreamDeck.Devices.StreamDeck import StreamDeck  # type: ignore
+from StreamDeck.ImageHelpers import PILHelper  # type: ignore
 
 logger = logging.getLogger(__name__)
 # StreamDeckController.py
@@ -29,13 +32,31 @@ class StreamDeckController:
         # Set default brightness
         self.deck.set_brightness(70)
 
+        # Set the callback for key press events
+        self.deck.set_key_callback(self.key_pressed)
+
         self.is_connected = True
         logger.info(f"Stream Deck initialized: {self.deck.deck_type()}")
-        return True
 
-    def set_key_image(self, key_index, image):
+    def set_key_image(self, key_index: int, image: Image):
         """Set an image for a specific key on the Stream Deck."""
+        scaled_image = PILHelper.create_scaled_key_image(self.deck, image)
+        key_image = PILHelper.to_native_format(self.deck, scaled_image)
+
         if 0 <= key_index < self.key_count:
-            self.deck.set_key_image(key_index, image)
+            self.deck.set_key_image(key_index, key_image)
         else:
             raise IndexError("Key index out of range.")
+
+    def key_pressed(self, deck: StreamDeck, key: int, state: bool):
+        """Handle key press events."""
+        logger.info(f"Key {key} {'pressed' if state else 'released'}.")
+
+    def close(self):
+        """Close the Stream Deck connection."""
+        if self.is_connected:
+            self.deck.close()
+            self.is_connected = False
+            logger.info("Stream Deck connection closed.")
+        else:
+            logger.warning("Stream Deck is already disconnected.")
