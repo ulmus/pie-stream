@@ -31,7 +31,7 @@ class VLCPlayer:
 
     _vlc: vlc.Instance
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.volume = 1.0
         self.error_message: str | None = None
 
@@ -65,18 +65,42 @@ class VLCPlayer:
             return PlayerState.ENDED
         return PlayerState.STOPPED
 
+    @property
+    def is_playing(self) -> bool:
+        """Check if the player is currently playing"""
+        return self.state == PlayerState.PLAYING or self.state == PlayerState.OPENING
+
+    @property
+    def is_paused(self) -> bool:
+        """Check if the player is currently paused"""
+        return self.state == PlayerState.PAUSED
+
+    @property
+    def is_stopped(self) -> bool:
+        """Check if the player is currently stopped"""
+        return self.state == PlayerState.STOPPED
+
     def play(self, media_ref: str) -> bool:
         """Play media from URL (radio streams, preview URLs, etc.)"""
         try:
+            if self.state == PlayerState.PLAYING:
+                self.stop()
             media = self.vlc.media_new(media_ref)
             self.player.set_media(media)
             self.player.audio_set_volume(int(self.volume * 100))
             self.player.play()
             self.error_message = None
-
-            time.sleep(1)
-            if self.state == PlayerState.PLAYING:
+            while (
+                self.state != PlayerState.PLAYING
+                and self.state != PlayerState.ERROR
+                and self.state != PlayerState.ENDED
+                and self.state != PlayerState.OPENING
+            ):
+                # Wait for the player to open the media
+                time.sleep(0.1)
+            if self.state == PlayerState.PLAYING or self.state == PlayerState.OPENING:
                 return True
+            self.error_message = f"Playback did not start successfully: {self.state}"
             return False
 
         except Exception as e:

@@ -1,5 +1,7 @@
 import json
 import logging
+import threading
+from time import sleep
 
 from PIL import Image  # type: ignore
 
@@ -9,91 +11,205 @@ from streamdeck import StreamDeckController
 # Set up logging
 logger = logging.getLogger(__name__)
 
+CONTROL_BUTTON_MARGINS = (5, 5, 5, 5)  # Margins for control buttons
+CAROUSEL_RESET_TIMEOUT = 30  # seconds
+
+
+def start_carousel_decorator(func):
+    """Decorator to start the carousel reset timer."""
+
+    def wrapper(self, *args, **kwargs):
+        self._cancel_carousel_timer()
+        result = func(self, *args, **kwargs)
+        self._start_carousel_timer()
+        return result
+
+    return wrapper
+
+
+class Album:
+    """Class representing an album with its metadata and artwork."""
+
+    artwork_pil_image: Image.Image | None = None
+    artwork_image: bytes | None = None
+    play_image: bytes | None = None
+    pause_image: bytes | None = None
+    stop_image: bytes | None = None
+
+    pause_icon = Image.open("./icons/pause-solid.png")
+    play_icon = Image.open("./icons/play-solid.png")
+    stop_icon = Image.open("./icons/stop-solid.png")
+
+    def __init__(
+        self,
+        name: str,
+        path: str,
+        deck: StreamDeckController,
+        album_art: str | None = None,
+    ) -> None:
+        self.name = name
+        self.path = path
+        self.album_art = album_art
+        self.deck = deck
+        self.set_artwork_images(album_art)
+
+    def to_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "path": self.path,
+            "album_art": self.album_art,
+        }
+
+    def set_artwork_images(self, album_art: str | None) -> None:
+        """Set the artwork images for play, pause, and stop actions."""
+        if album_art:
+            try:
+                self.artwork_pil_image = Image.open(album_art)
+            except Exception as e:
+                logger.error(f"Failed to load album art for {self.name}: {e}")
+                self.artwork_pil_image = None
+        if self.artwork_pil_image:
+            self.artwork_image = self.deck.convert_image(self.artwork_pil_image)
+            # Create images for play, pause, and stop actions with icons
+            self.play_image = self.deck.convert_image(
+                self.artwork_pil_image,
+                margins=CONTROL_BUTTON_MARGINS,
+                background="teal",
+                icon=self.play_icon,
+            )
+            self.pause_image = self.deck.convert_image(
+                self.artwork_pil_image,
+                margins=CONTROL_BUTTON_MARGINS,
+                background="teal",
+                icon=self.pause_icon,
+            )
+            self.stop_image = self.deck.convert_image(
+                self.artwork_pil_image,
+                margins=CONTROL_BUTTON_MARGINS,
+                background="teal",
+                icon=self.stop_icon,
+            )
+
 
 class AppController:
-    def __init__(self):
-        self.media_channels = []
+    def __init__(self) -> None:
+        self.albums: list[Album] = []
         self.deck_controller = StreamDeckController()
         self.player = VLCPlayer()
-        self.media_channel_count = 0
+        self.album_count = 0
         self.current_carousel_start_index = 0
+        self.current_playing_album: Album | None = None
+
+        # Timer for carousel reset
+        self.carousel_timer: threading.Timer | None = None
+        self.carousel_timer_lock = threading.Lock()
+
         self.control_images = {
             "next": self.deck_controller.convert_image(
                 Image.open("./icons/circle-arrow-right-solid.png"),
-                margins=(10, 10, 10, 10),
+                margins=CONTROL_BUTTON_MARGINS,
                 background="teal",
             ),
             "previous": self.deck_controller.convert_image(
                 Image.open("./icons/circle-arrow-left-solid.png"),
-                margins=(10, 10, 10, 10),
+                margins=CONTROL_BUTTON_MARGINS,
                 background="teal",
+            ),
+            "now_playing_empty": self.deck_controller.convert_image(
+                Image.open("./icons/music-solid.png"),
+                margins=CONTROL_BUTTON_MARGINS,
+                background="gray",
             ),
         }
         self.read_config()
         self.setup_media_buttons()
         self.setup_control_buttons()
+        self.setup_now_playing_button()
         logger.info("Application initialized successfully.")
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         if self.deck_controller:
             self.deck_controller.close()
         if self.player:
             self.player.stop()
         logger.info("Application cleanup completed.")
 
-    def read_config(self):
-        # Placeholder for reading configuration
+    def read_config(self) -> None:
         logger.info("Reading configuration...")
         with open("media.json") as config_file:
             config_data = json.load(config_file)
 
-        self.media_channels = config_data.get("albums", [])
-        # generate Pillow images for each album
-        for album in self.media_channels:
-            if "artwork" in album:
-                try:
-                    image = Image.open(album["artwork"])
-                    stream_deck_image = self.deck_controller.convert_image(image)
-                    album["stream_deck_image"] = stream_deck_image
-                except Exception as e:
-                    logger.error(
-                        f"Failed to load artwork for {album.get('name', 'unknown')}: {e}"
-                    )
-                    album["stream_deck_image"] = None
-        # Add the first two albums to the end as well to enable wrapping
-        self.media_channel_count = len(self.media_channels)
-        if len(self.media_channels) > 2:
-            self.media_channels.extend(self.media_channels[:2])
-        logger.info(f"Loaded {self.media_channel_count} media channels from config.")
+        album_items = config_data.get("albums", [])
+        for album_item in album_items:
+            name = album_item.get("name", "Unknown Album")
+            path = album_item.get("path", None)
+            album_art = album_item.get("artwork", None)
+            if not path:
+                logger.warning(f"Album '{name}' has no path defined, skipping.")
+                continue
+            # Create an Album instance and add it to the list
+            album = Album(name, path, self.deck_controller, album_art)
+            self.albums.append(album)
+        # generate byte images for each album
+        self.album_count = len(self.albums)
+        if len(self.albums) > 2:
+            self.albums.extend(self.albums[:2])
+        logger.info(f"Loaded {self.album_count} albums from config.")
 
-    def setup_media_buttons(self):
+    def setup_media_buttons(self) -> None:
         logger.info("Setting up media buttons...")
         for index, album in enumerate(
-            self.media_channels[
+            self.albums[
                 self.current_carousel_start_index : self.current_carousel_start_index
                 + 3
             ]
         ):
             self.deck_controller.set_button(
                 index,
-                artwork=album.get("stream_deck_image"),
-                action=lambda a=album: self.player.play(a.get("file", "")),
+                image=album.artwork_image,
+                action=lambda a=album: self.play_media(a),
             )
         logger.info("Media buttons setup completed.")
 
-    def setup_control_buttons(self):
+    def setup_control_buttons(self) -> None:
         """Set up control buttons for the Stream Deck."""
         self.deck_controller.set_button(
-            4, artwork=self.control_images["previous"], action=self.carousel_previous
+            4, image=self.control_images["previous"], action=self.carousel_previous
         )
         self.deck_controller.set_button(
-            5, artwork=self.control_images["next"], action=self.carousel_next
+            5, image=self.control_images["next"], action=self.carousel_next
         )
 
-    def carousel_next(self):
+    def setup_now_playing_button(self) -> None:
+        """Set up the 'Now Playing' button."""
+        if self.current_playing_album is None:
+            self.deck_controller.set_button(
+                3,
+                image=self.control_images["now_playing_empty"],
+                action=None,
+            )
+            return
+        album = self.current_playing_album
+        artwork_image: bytes | None = self.control_images["now_playing_empty"]
+        if self.player.is_playing:
+            # If the player is playing, use the album artwork
+            artwork_image = album.pause_image
+        elif self.player.is_paused:
+            # If the player is paused, use the album artwork with a different icon
+            artwork_image = album.play_image
+        elif self.player.is_stopped:
+            # If the player is stopped, use the album artwork with a different icon
+            artwork_image = album.play_image
+
+        self.deck_controller.set_button(
+            3, image=artwork_image, action=lambda a=album: self.play_pause_media(a)
+        )
+
+    @start_carousel_decorator
+    def carousel_next(self) -> None:
         """Move to the next carousel page."""
         self.current_carousel_start_index = self.current_carousel_start_index + 1
-        if self.current_carousel_start_index >= self.media_channel_count:
+        if self.current_carousel_start_index >= self.album_count:
             self.current_carousel_start_index = 0
 
         logger.info(
@@ -101,12 +217,116 @@ class AppController:
         )
         self.setup_media_buttons()
 
-    def carousel_previous(self):
+    @start_carousel_decorator
+    def carousel_previous(self) -> None:
         """Move to the previous carousel page."""
         self.current_carousel_start_index = self.current_carousel_start_index - 1
         if self.current_carousel_start_index < 0:
-            self.current_carousel_start_index = self.media_channel_count - 2
+            self.current_carousel_start_index = self.album_count - 1
         logger.info(
             f"Current carousel start index: {self.current_carousel_start_index}"
         )
         self.setup_media_buttons()
+
+    @start_carousel_decorator
+    def play_media(self, album) -> None:
+        """Play media from the specified album."""
+        success = self.player.play(album.path)
+        if success:
+            self.current_playing_album = album
+            self.setup_now_playing_button()
+            logger.info(f"Playing media: {album.name}")
+        else:
+            logger.error(
+                f"Failed to play media: {album.name} - {self.player.error_message}"
+            )
+
+    @start_carousel_decorator
+    def pause_media(self) -> None:
+        """Pause the currently playing media."""
+        if self.player.is_playing:
+            self.player.pause()
+            sleep(0.1)
+            self.setup_now_playing_button()
+            logger.info("Media playback paused.")
+        else:
+            logger.info("No media is currently playing to pause.")
+
+    @start_carousel_decorator
+    def stop_media(self) -> bool:
+        """Stop the currently playing media."""
+        if self.player.is_playing or self.player.is_paused:
+            self.player.stop()
+            self.current_playing_album = None
+            sleep(0.1)  # Allow time for the player to stop
+            self.setup_now_playing_button()
+            logger.info("Media playback stopped.")
+            return True
+        else:
+            logger.info("No media is currently playing to stop.")
+            return False
+
+    def play_pause_media(self, album) -> None:
+        """Play or pause media based on current state."""
+        if self.player.is_playing:
+            self.pause_media()
+        else:
+            self.play_media(album)
+
+    def _cancel_carousel_timer(self) -> None:
+        """Cancel the current carousel timer if it exists."""
+        with self.carousel_timer_lock:
+            if self.carousel_timer:
+                self.carousel_timer.cancel()
+                self.carousel_timer = None
+
+    def _start_carousel_timer(self) -> None:
+        """Start or restart the carousel reset timer."""
+        with self.carousel_timer_lock:
+            # Cancel existing timer
+            if self.carousel_timer:
+                self.carousel_timer.cancel()
+
+            # Only start timer if not already at default position
+            if self.current_carousel_start_index != 0:
+                self.carousel_timer = threading.Timer(
+                    CAROUSEL_RESET_TIMEOUT, self._reset_carousel_to_default
+                )
+                self.carousel_timer.start()
+
+    def _reset_carousel_to_default(self) -> None:
+        """Reset carousel to default position (index 0)."""
+        if self.current_carousel_start_index != 0:
+            self.current_carousel_start_index = 0
+            self.setup_media_buttons()
+            logger.info("Carousel reset to default position due to inactivity")
+
+
+def create_album_art_buttons(album) -> dict[str, bytes | None]:
+    """Create a dictionary of album art buttons."""
+    file_ref = album.get("album_art")
+    if not file_ref:
+        return {"artwork": None, "play": None, "pause": None}
+    try:
+        image = Image.open(file_ref)
+        artwork = StreamDeckController().convert_image(image)
+        play_icon = StreamDeckController().convert_image(
+            Image.open("./icons/play-solid.png"),
+            margins=(10, 10, 10, 10),
+            background="teal",
+        )
+        pause_icon = StreamDeckController().convert_image(
+            Image.open("./icons/pause-solid.png"),
+            margins=(10, 10, 10, 10),
+            background="teal",
+        )
+        return {
+            "artwork": artwork,
+            "play": play_icon,
+            "pause": pause_icon,
+        }
+    except Exception as e:
+        logger.error(
+            f"Failed to load album art for {album.get('name', 'unknown')}: {e}"
+        )
+        return {"artwork": None, "play": None, "pause": None}

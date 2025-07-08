@@ -46,11 +46,35 @@ class StreamDeckController:
         image: Image,
         margins: tuple[int, int, int, int] = (0, 0, 0, 0),
         background: str = "black",
+        icon: Image | None = None,
     ) -> bytes:
         """Convert a PIL Image to the format required by the Stream Deck."""
         scaled_image = PILHelper.create_scaled_key_image(
             self.deck, image, margins=margins, background=background
         )
+        if icon:
+            # If an icon is provided, add it to the scaled image
+            # Ensure the icon is resized to fit the lower right corner
+            icon = icon.resize(
+                (
+                    (scaled_image.width - margins[0] - margins[2]) // 3,
+                    (scaled_image.height - margins[1] - margins[3]) // 3,
+                )
+            )
+            scaled_image = add_icon_to_image(
+                scaled_image,
+                icon,
+                position=(
+                    scaled_image.width
+                    - margins[0]
+                    - icon.width
+                    - 10,  # Adjust for a small margin
+                    scaled_image.height
+                    - margins[1]
+                    - icon.height
+                    - 10,  # Adjust for a small margin
+                ),
+            )
         key_image = PILHelper.to_native_format(self.deck, scaled_image)
         return key_image
 
@@ -88,6 +112,7 @@ class StreamDeckController:
     def close(self):
         """Close the Stream Deck connection."""
         if self.is_connected:
+            self.deck.reset()
             self.deck.close()
             self.is_connected = False
             logger.info("Stream Deck connection closed.")
@@ -100,10 +125,21 @@ class StreamDeckController:
         logger.info("Stream DeckController instance deleted.")
 
     def set_button(
-        self, key_index: int, artwork: bytes | Image | None, action: Callable
+        self,
+        key_index: int,
+        image: bytes | Image | None,
+        action: Callable | None = None,
     ) -> None:
         """Set a button on the Stream Deck."""
-        if artwork is not None:
-            self.set_key_image(key_index, artwork)
-        self.register_key_callback(key_index, action)
+        if image is not None:
+            self.set_key_image(key_index, image)
+        if action is not None:
+            self.register_key_callback(key_index, action)
         logger.info(f"Button set: (Key {key_index})")
+
+
+def add_icon_to_image(image: Image, icon: Image, position: tuple[int, int]) -> Image:
+    """Add an icon to a base image at the specified position."""
+    image_copy = image.copy()
+    image_copy.paste(icon, position, icon)
+    return image_copy
