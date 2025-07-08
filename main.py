@@ -2,7 +2,7 @@
 import logging
 import threading
 
-from streamdeck.controller import StreamDeckController
+from app import AppController
 
 # Set up logging
 logging.basicConfig(
@@ -10,15 +10,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
-deck_controller: StreamDeckController | None = None
+app_controller: AppController | None = None
 
 
 def main():
     logger.info("Starting the pi-stream application")
     # Your main application logic here
-    global deck_controller
-    deck_controller = StreamDeckController()
+    global app_controller
+    app_controller = AppController()
     # Wait until all application threads have terminated (for this example,
     # this is when all deck handles are closed).
     for t in threading.enumerate():
@@ -40,7 +39,7 @@ if __name__ == "__main__":
         logger.info("Keyboard interrupt received, exiting gracefully")
         exit_code = 0
     finally:
-        if deck_controller:
-            deck_controller.close()
+        if app_controller:
+            app_controller.cleanup()
         logger.info("Exiting the pi-stream application")
     exit(exit_code)

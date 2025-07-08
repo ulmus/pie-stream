@@ -1,0 +1,24 @@
+{
+    "albums": [
+        {
+            "name": "SR P1",
+            "artwork": "./album_art/p1.jpg",
+            "file": "https://live1.sr.se/p1-mp3-96"
+        },
+        {
+            "name": "SR P2",
+            "artwork": "./album_art/p2.jpg",
+            "file": "https://live1.sr.se/p2-mp3-96"
+        },
+        {
+            "name": "SR P3",
+            "artwork": "./album_art/p3.jpg",
+            "file": "https://live1.sr.se/p3-mp3-96"
+        },
+        {
+            "name": "NRJ",
+            "artwork": "./album_art/nrj.png",
+            "file": "https://live-bauerse-fm.sharp-stream.com/nrj_instreamtest_se_mp3"
+        }
+    ]
+}
