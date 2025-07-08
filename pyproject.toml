@@ -5,13 +5,60 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "flake8"
+    "ruff"
 ]
 
 [project.scripts]
-lint = "flake8"
+lint = "ruff check"
+format = "ruff format"
 
 [dependency-groups]
 dev = [
-    "flake8>=7.3.0",
+    "ruff>=0.7.0",
+    "pre-commit>=3.0.0",
 ]
+
+[tool.ruff]
+# Same as Black's default line length
+line-length = 88
+
+# Enable Python 3.13+ syntax
+target-version = "py313"
+
+# Enable linting rules
+[tool.ruff.lint]
+# Enable commonly used rule sets
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+
+# Ignore specific rules if needed
+ignore = [
+    "E501",  # line too long (handled by formatter)
+]
+
+# Exclude directories
+exclude = [
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "env",
+    ".env",
+    "build",
+    "dist",
+    "*.egg-info",
+]
+
+[tool.ruff.format]
+# Use double quotes for strings
+quote-style = "double"
+
+# Indent with spaces
+indent-style = "space"
