@@ -53,6 +53,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "ruff" },
+    { name = "streamdeck" },
 ]
 
 [package.dev-dependencies]
@@ -62,7 +63,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "ruff" }]
+requires-dist = [
+    { name = "ruff" },
+    { name = "streamdeck", specifier = ">=0.9.6" },
+]
 
 [package.metadata.requires-dev]
 dev = [
@@ -135,6 +139,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/51/de/8589fa724590faa057e5a6d171e7f2f6cffe3287406ef40e49c682c07d89/ruff-0.12.2-py3-none-win32.whl", hash = "sha256:369ffb69b70cd55b6c3fc453b9492d98aed98062db9fec828cdfd069555f5f1a", size = 10523823, upload-time = "2025-07-03T16:40:13.203Z" },
     { url = "https://files.pythonhosted.org/packages/94/47/8abf129102ae4c90cba0c2199a1a9b0fa896f6f806238d6f8c14448cc748/ruff-0.12.2-py3-none-win_amd64.whl", hash = "sha256:dca8a3b6d6dc9810ed8f328d406516bf4d660c00caeaef36eb831cf4871b0639", size = 11629831, upload-time = "2025-07-03T16:40:15.478Z" },
     { url = "https://files.pythonhosted.org/packages/e2/1f/72d2946e3cc7456bb837e88000eb3437e55f80db339c840c04015a11115d/ruff-0.12.2-py3-none-win_arm64.whl", hash = "sha256:48d6c6bfb4761df68bc05ae630e24f506755e702d4fb08f08460be778c7ccb12", size = 10735334, upload-time = "2025-07-03T16:40:17.677Z" },
+]
+
+[[package]]
+name = "streamdeck"
+version = "0.9.6"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f9/2d/70bb4ba717745afdf9e7012655ceadf885dbb0e81465423e60bd003dfb88/streamdeck-0.9.6.tar.gz", hash = "sha256:ec42d9b711b352ea274ad305a6eb48ece1eed3a5bffe70b928e082dce0f788f0", size = 2556726, upload-time = "2024-10-29T00:04:58.317Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/97/5a/99dfdd3d8d8a2c7699ebb2e9a97a2d34ae8f2cd6bc1eee1febb8166d8317/streamdeck-0.9.6-py3-none-any.whl", hash = "sha256:e5fdcce06d399e249cfee7f0363eb12343b90a8ed2bfc1cd8408ced021ab184b", size = 32246, upload-time = "2024-10-29T00:04:48.12Z" },
 ]
 
 [[package]]
