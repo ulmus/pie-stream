@@ -5,8 +5,8 @@ from time import sleep
 
 from PIL import Image  # type: ignore
 
-from .album import Album
-from .constants import CAROUSEL_RESET_TIMEOUT, CONTROL_BUTTON_MARGINS
+from .album import Album, read_albums_from_path
+from .constants import CAROUSEL_RESET_TIMEOUT, CONTROL_BUTTON_MARGINS, MUSIC_PATH
 from .player import VLCPlayer
 from .streamdeck import StreamDeckController
 
@@ -97,10 +97,14 @@ class AppController:
             )
             self.albums.append(album)
         # generate byte images for each album
+
+        # Load albums in music path
+        albums = read_albums_from_path(MUSIC_PATH, self.deck_controller)
+        self.albums.extend(albums)
+
         self.album_count = len(self.albums)
-        if len(self.albums) > 2:
-            self.albums.extend(self.albums[:2])
-        logger.info(f"Loaded {self.album_count} albums from config.")
+
+        logger.info(f"Loaded {self.album_count} albums from music path.")
 
     def setup_media_buttons(self) -> None:
         logger.info("Setting up media buttons...")
@@ -313,36 +317,6 @@ class AppController:
             self.current_carousel_start_index = 0
             self.setup_media_buttons()
             logger.info("Carousel reset to default position due to inactivity")
-
-
-def create_album_art_buttons(album) -> dict[str, bytes | None]:
-    """Create a dictionary of album art buttons."""
-    file_ref = album.get("album_art")
-    if not file_ref:
-        return {"artwork": None, "play": None, "pause": None}
-    try:
-        image = Image.open(file_ref)
-        artwork = StreamDeckController().convert_image(image)
-        play_icon = StreamDeckController().convert_image(
-            Image.open("./icons/play-solid.png"),
-            margins=(10, 10, 10, 10),
-            background="teal",
-        )
-        pause_icon = StreamDeckController().convert_image(
-            Image.open("./icons/pause-solid.png"),
-            margins=(10, 10, 10, 10),
-            background="teal",
-        )
-        return {
-            "artwork": artwork,
-            "play": play_icon,
-            "pause": pause_icon,
-        }
-    except Exception as e:
-        logger.error(
-            f"Failed to load album art for {album.get('name', 'unknown')}: {e}"
-        )
-        return {"artwork": None, "play": None, "pause": None}
 
 
 _app_controller: AppController | None = None

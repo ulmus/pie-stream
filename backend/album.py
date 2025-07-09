@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 from typing import Literal
 
+import eyed3
 from PIL import Image
 
 from .constants import CONTROL_BUTTON_MARGINS
@@ -28,7 +29,7 @@ class Album:
         name: str,
         path: str,
         deck: StreamDeckController,
-        album_art: str | None = None,
+        album_art: Image.Image | None = None,
         type: Literal["album", "playlist", "stream"] = "stream",
         tracks: list[str] | None = None,
     ) -> None:
@@ -49,14 +50,9 @@ class Album:
             "type": self.type,
         }
 
-    def set_artwork_images(self, album_art: str | None) -> None:
+    def set_artwork_images(self, album_art: Image.Image | None) -> None:
         """Set the artwork images for play, pause, and stop actions."""
-        if album_art:
-            try:
-                self.artwork_pil_image = Image.open(album_art)
-            except Exception as e:
-                logger.error(f"Failed to load album art for {self.name}: {e}")
-                self.artwork_pil_image = None
+        self.artwork_pil_image = album_art
         if self.artwork_pil_image:
             self.artwork_image = self.deck.convert_image(self.artwork_pil_image)
             # Create images for play, pause, and stop actions with icons
@@ -114,18 +110,44 @@ def read_albums_from_path(path: Path, deck: StreamDeckController) -> list[Album]
 
     for album_path in path.iterdir():
         if album_path.is_dir():
-            album_art = next(
+            album_art_file_name = next(
                 (f for f in album_path.glob("*.jpg"))
                 or (f for f in album_path.glob("*.png")),
                 None,
             )
+            tracks = list(album_path.glob("*.mp3"))
+            if not tracks:
+                logger.warning(
+                    f"No MP3 tracks found in album {album_path.name}. Skipping."
+                )
+                continue
+            # Use eyed3 to read metadata of first track for album name and album art
+            # (Assuming you have eyed3 installed and imported)
+            first_track = tracks[0]
+            tagged_file = eyed3.load(first_track)
+            if tagged_file and tagged_file.tag:
+                album_name = tagged_file.tag.album or album_path.name
+            else:
+                album_name = album_path.name
+            if not album_art_file_name:
+                # If no album art found, use a eyed3 fallback
+                if tagged_file and tagged_file.tag and tagged_file.tag.images:
+                    # Use the first image from the tag if available
+                    for img in tagged_file.tag.images:
+                        if img.mime_type.startswith("image/"):
+                            album_art_file_name = path / f"cover_{album_name}.jpg"
+                            with open(album_art_file_name, "wb") as img_file:
+                                img_file.write(img.image_data)
+                            break
             album = Album(
-                name=album_path.name,
+                name=album_name,
                 path=str(album_path),
                 deck=deck,
-                album_art=str(album_art) if album_art else None,
+                album_art=Image.open(album_art_file_name)
+                if album_art_file_name
+                else None,
                 type="album",  # Default type, can be changed later
-                tracks=[str(track) for track in album_path.glob("*.mp3")],
+                tracks=[str(track) for track in tracks],
             )
 
             albums.append(album)
