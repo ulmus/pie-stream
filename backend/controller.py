@@ -92,6 +92,15 @@ class AppController:
             album_art = album_item.get("artwork", None)
             tracks = album_item.get("tracks", None)
             # Create an Album instance and add it to the list
+            if album_art:
+                # Convert album art to PIL Image if it's a path
+                if isinstance(album_art, str):
+                    try:
+                        album_art = Image.open(album_art)
+                    except Exception as e:
+                        logger.error(f"Failed to load album art from {album_art}: {e}")
+                        album_art = None
+
             album = Album(
                 name, path, self.deck_controller, album_art, tracks=tracks, type=type
             )
