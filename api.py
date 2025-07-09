@@ -64,3 +64,31 @@ def resume_playback():
         raise RuntimeError("AppController is not initialized.")
     app_controller.resume_media()
     return json.dumps({"status": "success", "message": "Playback resumed."})
+
+
+@app.post("/api/previous_track")
+def previous_track():
+    """Play the previous track in the current album."""
+    if app_controller is None:
+        raise RuntimeError("AppController is not initialized.")
+    if app_controller.current_playing_album:
+        app_controller.play_previous_track()
+        return json.dumps({"status": "success", "message": "Previous track played."})
+    else:
+        return json.dumps(
+            {"status": "error", "message": "No album is currently playing."}
+        )
+
+
+@app.post("/api/next_track")
+def next_track():
+    """Play the next track in the current album."""
+    if app_controller is None:
+        raise RuntimeError("AppController is not initialized.")
+    if app_controller.current_playing_album:
+        app_controller.play_next_track()
+        return json.dumps({"status": "success", "message": "Next track played."})
+    else:
+        return json.dumps(
+            {"status": "error", "message": "No album is currently playing."}
+        )

@@ -361,6 +361,7 @@ class AppController:
             self.current_playing_album = None
             sleep(0.1)  # Allow time for the player to stop
             self.setup_now_playing_button()
+            self.setup_control_buttons()
             logger.info("Media playback stopped.")
             return True
         else:
