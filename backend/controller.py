@@ -116,17 +116,16 @@ class AppController:
 
     def setup_media_buttons(self) -> None:
         logger.info("Setting up media buttons...")
-        for index, album in enumerate(
-            self.albums[
-                self.current_carousel_start_index : self.current_carousel_start_index
-                + 3
-            ]
+        # inside setup_media_buttons
+        for idx, album in enumerate(
+            wrap_slice(self.albums, self.current_carousel_start_index, 3)
         ):
             self.deck_controller.set_button(
-                index,
+                idx,
                 image=album.artwork_image,
                 action=lambda a=album: self.play_media(a),
             )
+
         logger.info("Media buttons setup completed.")
 
     def setup_control_buttons(self) -> None:
@@ -336,3 +335,9 @@ def get_app_controller() -> AppController:
     if _app_controller is None:
         _app_controller = AppController()
     return _app_controller
+
+
+def wrap_slice(lst: list, x: int, y: int) -> list:
+    """Return y elements from lst starting at x, wrapping around."""
+    n = len(lst)
+    return [lst[(x + i) % n] for i in range(y)]

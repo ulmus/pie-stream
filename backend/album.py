@@ -115,7 +115,7 @@ def read_albums_from_path(path: Path, deck: StreamDeckController) -> list[Album]
                 or (f for f in album_path.glob("*.png")),
                 None,
             )
-            tracks = list(album_path.glob("*.mp3"))
+            tracks = sorted(album_path.glob("*.mp3"))
             if not tracks:
                 logger.warning(
                     f"No MP3 tracks found in album {album_path.name}. Skipping."
