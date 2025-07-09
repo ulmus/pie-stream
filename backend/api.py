@@ -2,7 +2,7 @@ import json
 
 from fastapi import APIRouter
 
-from app import get_app_controller
+from .controller import get_app_controller
 
 app_controller = get_app_controller()
 

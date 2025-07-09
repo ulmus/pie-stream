@@ -6,7 +6,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app import get_app_controller
+from backend.controller import get_app_controller
 
 app_controller = get_app_controller()
 
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting the pi-stream application")
-    from api import router as api_router
+    from backend.api import router as api_router
 
     app.include_router(api_router)
     yield
@@ -47,6 +47,5 @@ app.add_middleware(
 )
 
 
-# register all @app routes in api.py
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

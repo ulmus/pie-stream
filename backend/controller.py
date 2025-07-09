@@ -2,18 +2,16 @@ import json
 import logging
 import threading
 from time import sleep
-from typing import Literal
 
 from PIL import Image  # type: ignore
 
-from player import VLCPlayer
-from streamdeck import StreamDeckController
+from .album import Album
+from .constants import CAROUSEL_RESET_TIMEOUT, CONTROL_BUTTON_MARGINS
+from .player import VLCPlayer
+from .streamdeck import StreamDeckController
 
 # Set up logging
 logger = logging.getLogger(__name__)
-
-CONTROL_BUTTON_MARGINS = (5, 5, 5, 5)  # Margins for control buttons
-CAROUSEL_RESET_TIMEOUT = 30  # seconds
 
 
 def start_carousel_decorator(func):
@@ -26,101 +24,6 @@ def start_carousel_decorator(func):
         return result
 
     return wrapper
-
-
-class Album:
-    """Class representing an album with its metadata and artwork."""
-
-    artwork_pil_image: Image.Image | None = None
-    artwork_image: bytes | None = None
-    play_image: bytes | None = None
-    pause_image: bytes | None = None
-    stop_image: bytes | None = None
-
-    pause_icon = Image.open("./icons/pause-solid.png")
-    play_icon = Image.open("./icons/play-solid.png")
-    stop_icon = Image.open("./icons/stop-solid.png")
-
-    def __init__(
-        self,
-        name: str,
-        path: str,
-        deck: StreamDeckController,
-        album_art: str | None = None,
-        type: Literal["album", "playlist", "stream"] = "stream",
-        tracks: list[str] | None = None,
-    ) -> None:
-        self.name = name
-        self.path = path
-        self.album_art = album_art
-        self.deck = deck
-        self.type = type
-        self.tracks = tracks
-        self.current_track_index = 0
-        self.set_artwork_images(album_art)
-
-    def to_dict(self) -> dict:
-        return {
-            "name": self.name,
-            "path": self.path,
-            "album_art": self.album_art,
-            "type": self.type,
-        }
-
-    def set_artwork_images(self, album_art: str | None) -> None:
-        """Set the artwork images for play, pause, and stop actions."""
-        if album_art:
-            try:
-                self.artwork_pil_image = Image.open(album_art)
-            except Exception as e:
-                logger.error(f"Failed to load album art for {self.name}: {e}")
-                self.artwork_pil_image = None
-        if self.artwork_pil_image:
-            self.artwork_image = self.deck.convert_image(self.artwork_pil_image)
-            # Create images for play, pause, and stop actions with icons
-            self.play_image = self.deck.convert_image(
-                self.artwork_pil_image,
-                margins=CONTROL_BUTTON_MARGINS,
-                background="teal",
-                icon=self.play_icon,
-            )
-            self.pause_image = self.deck.convert_image(
-                self.artwork_pil_image,
-                margins=CONTROL_BUTTON_MARGINS,
-                background="teal",
-                icon=self.pause_icon,
-            )
-            self.stop_image = self.deck.convert_image(
-                self.artwork_pil_image,
-                margins=CONTROL_BUTTON_MARGINS,
-                background="teal",
-                icon=self.stop_icon,
-            )
-
-    def reset_track_index(self) -> None:
-        """Reset the current track index to the first track."""
-        self.current_track_index = 0
-
-    def next_track(self) -> None:
-        """Move to the next track in the album."""
-        if self.tracks and self.current_track_index < len(self.tracks) - 1:
-            self.current_track_index += 1
-        else:
-            logger.warning("No more tracks available or no tracks defined.")
-
-    def previous_track(self) -> None:
-        """Move to the previous track in the album."""
-        if self.tracks and self.current_track_index > 0:
-            self.current_track_index -= 1
-        else:
-            logger.warning("No previous track available or no tracks defined.")
-
-    def get_path(self) -> str:
-        """Get the path of the album."""
-        if self.tracks:
-            return self.tracks[self.current_track_index]
-        # If no tracks are defined, return the album path
-        return self.path
 
 
 class AppController:

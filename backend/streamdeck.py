@@ -4,7 +4,6 @@ import time
 from collections.abc import Callable
 
 from PIL.Image import Image  # type: ignore
-
 from StreamDeck.DeviceManager import DeviceManager  # type: ignore
 from StreamDeck.Devices.StreamDeck import StreamDeck  # type: ignore
 from StreamDeck.ImageHelpers import PILHelper  # type: ignore
