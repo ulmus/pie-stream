@@ -18,7 +18,7 @@
 import { defineProps, defineEmits } from 'vue';
 import type { Album } from '../types';
 const { albums } = defineProps<{ albums: Album[] }>();
-const emits = defineEmits<{ (e: 'play', index: number): void }>();
+const emits = defineEmits<(e: 'play', index: number) => void>();
 
 const emitPlay = (index: number) => emits('play', index);
 </script>

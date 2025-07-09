@@ -22,21 +22,21 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, defineEmits } from 'vue';
-import type { Status } from '../types';
-const { status } = defineProps<{ status: Status }>();
+import { defineProps, defineEmits } from 'vue'
+import type { Status } from '../types'
+const { status } = defineProps<{ status: Status }>()
 
 const emits = defineEmits<{
-  (e: 'stop'): void;
-  (e: 'pause'): void;
-  (e: 'resume'): void;
-  (e: 'previous'): void;
-  (e: 'next'): void;
-}>();
+  (e: 'stop'): void
+  (e: 'pause'): void
+  (e: 'resume'): void
+  (e: 'previous'): void
+  (e: 'next'): void
+}>()
 
-const emitStop = () => emits('stop');
-const emitPause = () => emits('pause');
-const emitResume = () => emits('resume');
-const emitPrevious = () => emits('previous');
-const emitNext = () => emits('next');
+const emitStop = () => emits('stop')
+const emitPause = () => emits('pause')
+const emitResume = () => emits('resume')
+const emitPrevious = () => emits('previous')
+const emitNext = () => emits('next')
 </script>

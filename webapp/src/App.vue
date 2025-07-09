@@ -10,7 +10,7 @@ import {
   pausePlayback,
   resumePlayback,
   nextTrack,
-  previousTrack,
+  previousTrack
 } from './api'
 import type { Album, Status } from './types'
 
@@ -19,35 +19,35 @@ const albums = ref<Album[]>([])
 const status = ref<Status>({ current_playing_album: null, player_state: '', is_connected: false })
 
 // load functions
-async function loadAlbums() {
+async function loadAlbums () {
   albums.value = await getAlbums()
 }
-async function loadStatus() {
+async function loadStatus () {
   status.value = await getStatus()
 }
 
 // event handlers
-async function handlePlay(index: number) {
+async function handlePlay (index: number) {
   await playAlbum(index)
   await loadStatus()
 }
-async function handleStop() {
+async function handleStop () {
   await stopPlayback()
   await loadStatus()
 }
-async function handlePause() {
+async function handlePause () {
   await pausePlayback()
   await loadStatus()
 }
-async function handleResume() {
+async function handleResume () {
   await resumePlayback()
   await loadStatus()
 }
-async function handleNext() {
+async function handleNext () {
   await nextTrack()
   await loadStatus()
 }
-async function handlePrevious() {
+async function handlePrevious () {
   await previousTrack()
   await loadStatus()
 }
