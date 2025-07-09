@@ -341,6 +341,16 @@ class AppController:
         else:
             logger.info("No media is currently playing to pause.")
 
+    def resume_media(self) -> None:
+        """Resume the currently paused media."""
+        if self.player.is_paused and self.current_playing_album:
+            self.player.play(self.current_playing_album.get_path())
+            sleep(0.1)
+            self.setup_now_playing_button()
+            logger.info("Media playback resumed.")
+        else:
+            logger.info("No media is currently paused to resume.")
+
     @start_carousel_decorator
     def stop_media(self) -> bool:
         """Stop the currently playing media."""

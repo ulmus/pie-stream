@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 import logging
-import threading
+from contextlib import asynccontextmanager
+
+import uvicorn
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app import AppController
 
@@ -10,36 +14,35 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Create the FastAPI application
 app_controller: AppController | None = None
 
 
-def main():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     logger.info("Starting the pi-stream application")
-    # Your main application logic here
     global app_controller
     app_controller = AppController()
-    # Wait until all application threads have terminated (for this example,
-    # this is when all deck handles are closed).
-    for t in threading.enumerate():
-        try:
-            t.join()
-        except RuntimeError:
-            pass
-    logger.info("Pi-stream application finished successfully")
-    return 0
+    yield
+    logger.info("Cleaning up resources")
+    if app_controller:
+        # Ensure the AppController is cleaned up properly
+        app_controller.cleanup()
 
+
+app = FastAPI(
+    lifespan=lifespan,
+    title="Pi Stream",
+    version="1.0.0",
+    description="A music streaming application for Raspberry Pi",
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for CORS
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
+)
 
 if __name__ == "__main__":
-    try:
-        exit_code = main()
-    except Exception as e:
-        logger.error(f"An error occurred: {e}")
-        exit_code = 1
-    except KeyboardInterrupt:
-        logger.info("Keyboard interrupt received, exiting gracefully")
-        exit_code = 0
-    finally:
-        if app_controller:
-            app_controller.cleanup()
-        logger.info("Exiting the pi-stream application")
-    exit(exit_code)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
