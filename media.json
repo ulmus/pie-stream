@@ -38,6 +38,44 @@
                 "../music/historierummet/historierummet_i_barnradion_marilyn_monroe__filmhistorien_20250320_1359467979.mp3",
                 "../music/historierummet/historierummet_i_barnradion_selma_lagerlof__hela_sveriges_20250507_1019103946.mp3"
             ]
+        },
+        {
+            "name": "Bruce Springsteen",
+            "artwork": "../music/brucespringsteen/cover.jpg",
+            "type": "album",
+            "tracks": [
+                "../music/brucespringsteen/01 Growin' Up.mp3",
+                "../music/brucespringsteen/02 Spirit in the Night.mp3",
+                "../music/brucespringsteen/03 Rosalita (Come Out Tonight).mp3",
+                "../music/brucespringsteen/04 4th of July, Asbury Park (Sandy).mp3",
+                "../music/brucespringsteen/05 Born to Run.mp3",
+                "../music/brucespringsteen/06 Tenth Avenue Freeze-Out.mp3",
+                "../music/brucespringsteen/07 Thunder Road.mp3",
+                "../music/brucespringsteen/08 Badlands.mp3",
+                "../music/brucespringsteen/09 Prove It All Night.mp3",
+                "../music/brucespringsteen/10 The River.mp3",
+                "../music/brucespringsteen/11 Hungry Heart.mp3",
+                "../music/brucespringsteen/12 Atlantic City.mp3",
+                "../music/brucespringsteen/13 Glory Days.mp3",
+                "../music/brucespringsteen/14 Dancing In the Dark.mp3",
+                "../music/brucespringsteen/15 Born in the U.S.A..mp3",
+                "../music/brucespringsteen/16 Brilliant Disguise.mp3",
+                "../music/brucespringsteen/17 Tougher Than the Rest.mp3",
+                "../music/brucespringsteen/18 Human Touch.mp3",
+                "../music/brucespringsteen/19 If I Should Fall Behind.mp3",
+                "../music/brucespringsteen/20 Living Proof.mp3",
+                "../music/brucespringsteen/21 Streets of Philadelphia.mp3",
+                "../music/brucespringsteen/22 The Ghost of Tom Joad.mp3",
+                "../music/brucespringsteen/23 Secret Garden.mp3",
+                "../music/brucespringsteen/24 The Rising.mp3",
+                "../music/brucespringsteen/25 Long Time Comin'.mp3",
+                "../music/brucespringsteen/26 Girls In Their Summer Clothes.mp3",
+                "../music/brucespringsteen/27 The Wrestler.mp3",
+                "../music/brucespringsteen/28 We Take Care of Our Own.mp3",
+                "../music/brucespringsteen/29 Hello Sunshine.mp3",
+                "../music/brucespringsteen/30 Ghosts.mp3",
+                "../music/brucespringsteen/31 Letter To You.mp3"
+            ]
         }
     ]
 }
