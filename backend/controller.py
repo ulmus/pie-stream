@@ -96,7 +96,6 @@ class AppController:
                 name, path, self.deck_controller, album_art, tracks=tracks, type=type
             )
             self.albums.append(album)
-        # generate byte images for each album
 
         # Load albums in music path
         albums = read_albums_from_path(MUSIC_PATH, self.deck_controller)
