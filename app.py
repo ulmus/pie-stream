@@ -344,7 +344,7 @@ class AppController:
     def resume_media(self) -> None:
         """Resume the currently paused media."""
         if self.player.is_paused and self.current_playing_album:
-            self.player.play(self.current_playing_album.get_path())
+            self.player.resume()
             sleep(0.1)
             self.setup_now_playing_button()
             logger.info("Media playback resumed.")
@@ -373,7 +373,15 @@ class AppController:
         if self.player.is_playing:
             self.pause_media()
         else:
-            self.play_media(album)
+            if self.player.is_paused:
+                self.resume_media()
+            else:
+                # If not playing or paused, start playing the album
+                self.current_playing_album = album
+                self.setup_now_playing_button()
+                self.setup_control_buttons()
+                logger.info(f"Playing media: {album.name}")
+                self.play_media(album)
 
     def _cancel_carousel_timer(self) -> None:
         """Cancel the current carousel timer if it exists."""
@@ -432,3 +440,14 @@ def create_album_art_buttons(album) -> dict[str, bytes | None]:
             f"Failed to load album art for {album.get('name', 'unknown')}: {e}"
         )
         return {"artwork": None, "play": None, "pause": None}
+
+
+_app_controller: AppController | None = None
+
+
+def get_app_controller() -> AppController:
+    """Get the global AppController instance."""
+    global _app_controller
+    if _app_controller is None:
+        _app_controller = AppController()
+    return _app_controller

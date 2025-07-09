@@ -6,7 +6,9 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app import AppController
+from app import get_app_controller
+
+app_controller = get_app_controller()
 
 # Set up logging
 logging.basicConfig(
@@ -14,15 +16,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Create the FastAPI application
-app_controller: AppController | None = None
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting the pi-stream application")
-    global app_controller
-    app_controller = AppController()
+    from api import router as api_router
+
+    app.include_router(api_router)
     yield
     logger.info("Cleaning up resources")
     if app_controller:
@@ -36,6 +36,8 @@ app = FastAPI(
     version="1.0.0",
     description="A music streaming application for Raspberry Pi",
 )
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allow all origins for CORS
@@ -44,5 +46,7 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
+
+# register all @app routes in api.py
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
