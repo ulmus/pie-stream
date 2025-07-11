@@ -199,16 +199,6 @@ def read_albums_from_path(path: Path, deck: StreamDeckController) -> list[Album]
                 album_name = tagged_file.tag.album or album_path.name
             else:
                 album_name = album_path.name
-            if not album_art_file_name:
-                # If no album art found, use a eyed3 fallback
-                if tagged_file and tagged_file.tag and tagged_file.tag.images:
-                    # Use the first image from the tag if available
-                    for img in tagged_file.tag.images:
-                        if img.mime_type.startswith("image/"):
-                            album_art_file_name = path / f"cover_{album_name}.jpg"
-                            with open(album_art_file_name, "wb") as img_file:
-                                img_file.write(img.image_data)
-                            break
             album = Album(
                 name=album_name,
                 path=str(album_path),
