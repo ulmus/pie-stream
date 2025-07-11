@@ -169,7 +169,7 @@ class StreamDeckController:
             self.long_press_timers[key].cancel()
 
         # Start a timer for long press detection
-        if key in self.long_press_callbacks:
+        if key in self.long_press_callbacks or key in self.repeat_long_press_callbacks:
             timer = threading.Timer(
                 LONG_PRESS_THRESHOLD, self._trigger_long_press, args=[key]
             )
