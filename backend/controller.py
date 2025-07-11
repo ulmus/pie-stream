@@ -237,10 +237,10 @@ class AppController:
             logger.warning("No album is currently playing or not an album type.")
 
     @start_carousel_decorator
-    def play_media(self, album) -> None:
+    def play_media(self, album: Album) -> None:
         """Play media from the specified album."""
         # Reset the current track to the first track in the album
-        if self.current_playing_album:
+        if album != self.current_playing_album and self.current_playing_album:
             self.current_playing_album.reset_current_track()
         success = self.player.play(
             album.get_path(), lambda p, m, s, e: self.on_playback_end(p, m, s, e)
