@@ -239,7 +239,12 @@ class AppController:
     @start_carousel_decorator
     def play_media(self, album) -> None:
         """Play media from the specified album."""
-        success = self.player.play(album.get_path())
+        # Reset the current track to the first track in the album
+        if self.current_playing_album:
+            self.current_playing_album.reset_current_track()
+        success = self.player.play(
+            album.get_path(), lambda p, m, s, e: self.on_playback_end(p, m, s, e)
+        )
         if success:
             self.current_playing_album = album
             self.setup_now_playing_button()
@@ -304,6 +309,24 @@ class AppController:
                 self.setup_control_buttons()
                 logger.info(f"Playing media: {album.name}")
                 self.play_media(album)
+
+    def on_playback_end(self, player, media_ref, state, event) -> None:
+        """Handle playback end event."""
+        logger.info(f"Playback ended for media: {media_ref} with state: {state}")
+        if self.current_playing_album:
+            if self.current_playing_album.current_track_is_last():
+                logger.info(
+                    "Current track is the last track, moving to the next track."
+                )
+                self.stop_media()
+            else:
+                # If not the last track, move to the next track
+                logger.info("Moving to the next track in the album.")
+                self.current_playing_album.next_track()
+                self.play_media(self.current_playing_album)
+        else:
+            logger.warning("No current playing album to handle playback end.")
+            self.stop_media()
 
     def _cancel_carousel_timer(self) -> None:
         """Cancel the current carousel timer if it exists."""

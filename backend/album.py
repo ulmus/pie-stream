@@ -170,6 +170,12 @@ class Album:
             return self.current_track.stop_image
         return self.stop_image
 
+    def current_track_is_last(self) -> bool:
+        """Check if the current track is the last track in the album."""
+        return bool(
+            self.current_track and self.current_track.index == len(self.tracks) - 1
+        )
+
 
 def read_albums_from_path(path: Path, deck: StreamDeckController) -> list[Album]:
     """Read albums from a given path and return a list of Album objects."""

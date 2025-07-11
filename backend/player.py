@@ -9,8 +9,11 @@ import enum
 import logging
 import threading
 import time
+from collections.abc import Callable
 
 import vlc  # type: ignore
+
+MediaPlayerEndReached = vlc.EventType.MediaPlayerEndReached  # type: ignore
 
 
 class PlayerState(enum.Enum):
@@ -44,6 +47,7 @@ class VLCPlayer:
         # Threading
         self._playback_thread: threading.Thread | None = None
         self._stop_flag = threading.Event()
+        self.event_manager = self.player.event_manager()
 
     @property
     def state(self) -> PlayerState:
@@ -80,7 +84,7 @@ class VLCPlayer:
         """Check if the player is currently stopped"""
         return self.state == PlayerState.STOPPED
 
-    def play(self, media_ref: str) -> bool:
+    def play(self, media_ref: str, on_playback_end: Callable | None = None) -> bool:
         """Play media from URL (radio streams, preview URLs, etc.)"""
         try:
             if self.state == PlayerState.PLAYING:
@@ -100,6 +104,12 @@ class VLCPlayer:
                 time.sleep(0.1)
             if self.state == PlayerState.PLAYING or self.state == PlayerState.OPENING:
                 return True
+            self.event_manager.event_detach(MediaPlayerEndReached)
+            if on_playback_end:
+                self.event_manager.event_attach(
+                    MediaPlayerEndReached,
+                    lambda event: on_playback_end(self, media_ref, self.state, event),
+                )
             self.error_message = f"Playback did not start successfully: {self.state}"
             return False
 
@@ -111,7 +121,7 @@ class VLCPlayer:
         """Stop playback"""
         try:
             self.player.stop()
-
+            self.event_manager.event_detach(MediaPlayerEndReached)
             self.error_message = None
             return True
         except Exception as e:
