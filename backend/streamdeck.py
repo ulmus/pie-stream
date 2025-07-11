@@ -2,8 +2,9 @@ import logging
 import threading
 import time
 from collections.abc import Callable
+from pathlib import Path
 
-from PIL.Image import Image  # type: ignore
+from PIL import Image, ImageDraw, ImageFont
 from StreamDeck.DeviceManager import DeviceManager  # type: ignore
 from StreamDeck.Devices.StreamDeck import StreamDeck  # type: ignore
 from StreamDeck.ImageHelpers import PILHelper  # type: ignore
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 # StreamDeckController.py
 
 LONG_PRESS_THRESHOLD = 1.0  # seconds
+FONT_PATH = Path(__file__).parent / "fonts" / "Roboto_Condensed-Bold.ttf"
 
 
 class StreamDeckController:
@@ -53,15 +55,29 @@ class StreamDeckController:
 
     def convert_image(
         self,
-        image: Image,
+        image: Image.Image,
         margins: tuple[int, int, int, int] = (0, 0, 0, 0),
         background: str = "black",
-        icon: Image | None = None,
+        icon: Image.Image | None = None,
+        label: str | None = None,
     ) -> bytes:
         """Convert a PIL Image to the format required by the Stream Deck."""
         scaled_image = PILHelper.create_scaled_key_image(
             self.deck, image, margins=margins, background=background
         )
+        if scaled_image.mode != "RGBA":
+            scaled_image = scaled_image.convert("RGBA")
+
+        if icon or label:
+            overlay = Image.new("RGBA", scaled_image.size, (0, 0, 0, 0))
+            draw_overlay = ImageDraw.Draw(overlay)
+            y_start = int(scaled_image.height * 1 / 2)
+            draw_overlay.rectangle(
+                [(0, y_start), (scaled_image.width, scaled_image.height)],
+                fill=(255, 255, 255, 128),
+            )
+            scaled_image = Image.alpha_composite(scaled_image, overlay)
+
         if icon:
             # If an icon is provided, add it to the scaled image
             # Ensure the icon is resized to fit the lower right corner
@@ -78,19 +94,47 @@ class StreamDeckController:
                     scaled_image.width
                     - margins[0]
                     - icon.width
-                    - 10,  # Adjust for a small margin
+                    - 5,  # Adjust for a small margin
                     scaled_image.height
                     - margins[1]
                     - icon.height
-                    - 10,  # Adjust for a small margin
+                    - 5,  # Adjust for a small margin
                 ),
             )
+        if label:
+            # If a label is provided, add it to the scaled image
+            draw = ImageDraw.Draw(scaled_image)
+            font = (
+                ImageFont.truetype(str(FONT_PATH), 24)
+                if FONT_PATH.exists()
+                else ImageFont.load_default(24)
+            )
+
+            # Measure text size
+            bbox = draw.textbbox((0, 0), label, font=font)
+            text_height = bbox[3] - bbox[1]
+
+            # Position at lower-left corner
+            text_position = (
+                margins[0] + 5,
+                scaled_image.height
+                - margins[3]
+                - text_height
+                - 15,  # Adjust for a small margin
+            )
+            draw.text(text_position, label, fill="black", font=font)
+
+        # After all drawing (box, icon, label), drop alpha channel –
+        # StreamDeck expects an RGB image
+        if scaled_image.mode == "RGBA":
+            scaled_image = scaled_image.convert("RGB")
+
         key_image = PILHelper.to_native_format(self.deck, scaled_image)
         return key_image
 
-    def set_key_image(self, key_index: int, image: bytes | Image):
+    def set_key_image(self, key_index: int, image: bytes | Image.Image):
         """Set an image for a specific key on the Stream Deck."""
-        if isinstance(image, Image):
+        if isinstance(image, Image.Image):
             # If the image is a PIL Image, convert it to bytes
             key_image = self.convert_image(image)
             # If the image is already in bytes format, use it directly
@@ -201,7 +245,7 @@ class StreamDeckController:
     def set_button(
         self,
         key_index: int,
-        image: bytes | Image | None,
+        image: bytes | Image.Image | None,
         action: Callable | None = None,
         long_press_action: Callable | None = None,
     ) -> None:
@@ -215,7 +259,9 @@ class StreamDeckController:
         logger.info(f"Button set: (Key {key_index})")
 
 
-def add_icon_to_image(image: Image, icon: Image, position: tuple[int, int]) -> Image:
+def add_icon_to_image(
+    image: Image.Image, icon: Image.Image, position: tuple[int, int]
+) -> Image.Image:
     """Add an icon to a base image at the specified position."""
     image_copy = image.copy()
     image_copy.paste(icon, position, icon)

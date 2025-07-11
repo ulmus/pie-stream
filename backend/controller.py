@@ -172,13 +172,13 @@ class AppController:
         artwork_image: bytes | None = self.control_images["now_playing_empty"]
         if self.player.is_playing:
             # If the player is playing, use the album artwork
-            artwork_image = album.play_image
+            artwork_image = album.get_play_image()
         elif self.player.is_paused:
             # If the player is paused, use the album artwork with a different icon
-            artwork_image = album.pause_image
+            artwork_image = album.get_pause_image()
         elif self.player.is_stopped:
             # If the player is stopped, use the album artwork with a different icon
-            artwork_image = album.stop_image
+            artwork_image = album.get_stop_image()
 
         self.deck_controller.set_button(
             3,
@@ -210,6 +210,7 @@ class AppController:
         )
         self.setup_media_buttons()
 
+    @start_carousel_decorator
     def play_next_track(self) -> None:
         """Play the next track in the current album."""
         if self.current_playing_album and self.current_playing_album.type == "album":
@@ -219,6 +220,7 @@ class AppController:
         else:
             logger.warning("No album is currently playing or not an album type.")
 
+    @start_carousel_decorator
     def play_previous_track(self) -> None:
         """Play the previous track in the current album."""
         if self.current_playing_album and self.current_playing_album.type == "album":
@@ -255,6 +257,7 @@ class AppController:
         else:
             logger.info("No media is currently playing to pause.")
 
+    @start_carousel_decorator
     def resume_media(self) -> None:
         """Resume the currently paused media."""
         if self.player.is_paused and self.current_playing_album:
@@ -271,7 +274,7 @@ class AppController:
         if self.player.is_playing or self.player.is_paused:
             self.player.stop()
             if self.current_playing_album:
-                self.current_playing_album.reset_track_index()
+                self.current_playing_album.reset_current_track()
             self.current_playing_album = None
             sleep(0.1)  # Allow time for the player to stop
             self.setup_now_playing_button()
@@ -282,6 +285,7 @@ class AppController:
             logger.info("No media is currently playing to stop.")
             return False
 
+    @start_carousel_decorator
     def play_pause_media(self, album) -> None:
         """Play or pause media based on current state."""
         if self.player.is_playing:
