@@ -25,6 +25,9 @@ class StreamDeckController:
         self.device_manager = DeviceManager()
         self.keypress_callbacks = {}
         self.long_press_callbacks = {}
+        self.repeat_long_press_callbacks = {}  # key_index -> (callback, interval)
+        self.long_press_timers = {}
+        self.repeat_long_press_timers = {}
 
         # Long press tracking
         self.key_press_times = {}  # Track when keys were pressed
@@ -180,6 +183,11 @@ class StreamDeckController:
             self.long_press_timers[key].cancel()
             del self.long_press_timers[key]
 
+        # Cancel repeat long press timers if any
+        if key in self.repeat_long_press_timers:
+            self.repeat_long_press_timers[key].cancel()
+            del self.repeat_long_press_timers[key]
+
         # Check if this was a long press or regular press
         if key in self.long_press_triggered and self.long_press_triggered[key]:
             # Long press was already triggered, don't trigger regular press
@@ -198,13 +206,42 @@ class StreamDeckController:
 
     def _trigger_long_press(self, key: int):
         """Trigger long press callback for a key."""
-        if key in self.long_press_callbacks:
+        # Handle continuous repeat long press if registered
+        if key in self.repeat_long_press_callbacks:
+            callback, interval = self.repeat_long_press_callbacks[key]
+            self.long_press_triggered[key] = True
+            try:
+                logger.info(f"Continuous long press triggered for key {key}")
+                callback()
+            except Exception as e:
+                logger.error(f"Error in continuous long press for key {key}: {e}")
+            # Schedule next callback
+            timer = threading.Timer(interval, self._repeat_long_press, args=[key])
+            self.repeat_long_press_timers[key] = timer
+            timer.start()
+        # Handle single long press if no repeat registered
+        elif key in self.long_press_callbacks:
             self.long_press_triggered[key] = True
             try:
                 logger.info(f"Long press triggered for key {key}")
                 self.long_press_callbacks[key]()
             except Exception as e:
                 logger.error(f"Error in long press callback for key {key}: {e}")
+
+    def _repeat_long_press(self, key: int):
+        """Internal helper to perform repeated long press callbacks."""
+        if key in self.repeat_long_press_callbacks and self.long_press_triggered.get(
+            key, False
+        ):
+            callback, interval = self.repeat_long_press_callbacks[key]
+            try:
+                callback()
+            except Exception as e:
+                logger.error(f"Error in repeated long press for key {key}: {e}")
+            # Schedule next repetition
+            timer = threading.Timer(interval, self._repeat_long_press, args=[key])
+            self.repeat_long_press_timers[key] = timer
+            timer.start()
 
     def register_key_callback(self, key_index: int, callback: Callable):
         """Register a callback for a specific key index."""
@@ -222,6 +259,18 @@ class StreamDeckController:
         else:
             raise IndexError("Key index out of range.")
 
+    def register_repeat_long_press_callback(
+        self, key_index: int, callback: Callable, interval: float
+    ):
+        """Register a repeating long press callback for a specific key index with interval in seconds."""
+        if 0 <= key_index < self.key_count:
+            self.repeat_long_press_callbacks[key_index] = (callback, interval)
+            logger.info(
+                f"Repeat long press callback registered for key {key_index} every {interval}s."
+            )
+        else:
+            raise IndexError("Key index out of range.")
+
     def close(self):
         """Close the Stream Deck connection."""
         if self.is_connected:
@@ -229,6 +278,11 @@ class StreamDeckController:
             for timer in self.long_press_timers.values():
                 timer.cancel()
             self.long_press_timers.clear()
+
+            # Cancel all active repeat long press timers
+            for timer in self.repeat_long_press_timers.values():
+                timer.cancel()
+            self.repeat_long_press_timers.clear()
 
             self.deck.reset()
             self.deck.close()
@@ -247,7 +301,7 @@ class StreamDeckController:
         key_index: int,
         image: bytes | Image.Image | None,
         action: Callable | None = None,
-        long_press_action: Callable | None = None,
+        long_press_action: Callable | tuple[Callable, float] | None = None,
     ) -> None:
         """Set a button on the Stream Deck."""
         if image is not None:
@@ -255,7 +309,12 @@ class StreamDeckController:
         if action is not None:
             self.register_key_callback(key_index, action)
         if long_press_action is not None:
-            self.register_long_press_callback(key_index, long_press_action)
+            # Support tuple of (callback, interval) for repeating long press
+            if isinstance(long_press_action, tuple) and len(long_press_action) == 2:
+                callback, interval = long_press_action
+                self.register_repeat_long_press_callback(key_index, callback, interval)
+            elif callable(long_press_action):
+                self.register_long_press_callback(key_index, long_press_action)
         logger.info(f"Button set: (Key {key_index})")
 
 
