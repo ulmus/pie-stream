@@ -140,11 +140,13 @@ class AppController:
                 4,
                 image=self.control_images["previous_track"],
                 action=self.play_previous_track,
+                long_press_action=self.carousel_previous,
             )
             self.deck_controller.set_button(
                 5,
                 image=self.control_images["next_track"],
                 action=self.play_next_track,
+                long_press_action=self.carousel_next,
             )
         else:
             # If not playing an album, set up next/previous carousel buttons
