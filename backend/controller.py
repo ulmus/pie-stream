@@ -6,7 +6,12 @@ from time import sleep
 from PIL import Image  # type: ignore
 
 from .album import Album, read_albums_from_path
-from .constants import CAROUSEL_RESET_TIMEOUT, CONTROL_BUTTON_MARGINS, MUSIC_PATH
+from .constants import (
+    CAROUSEL_REPEAT_INTERVAL,
+    CAROUSEL_RESET_TIMEOUT,
+    CONTROL_BUTTON_MARGINS,
+    MUSIC_PATH,
+)
 from .player import VLCPlayer
 from .streamdeck import StreamDeckController
 
@@ -140,13 +145,13 @@ class AppController:
                 4,
                 image=self.control_images["previous_track"],
                 action=self.play_previous_track,
-                long_press_action=(self.carousel_previous, 0.3),
+                long_press_action=(self.carousel_previous, CAROUSEL_REPEAT_INTERVAL),
             )
             self.deck_controller.set_button(
                 5,
                 image=self.control_images["next_track"],
                 action=self.play_next_track,
-                long_press_action=(self.carousel_next, 0.3),
+                long_press_action=(self.carousel_next, CAROUSEL_REPEAT_INTERVAL),
             )
         else:
             # If not playing an album, set up next/previous carousel buttons
@@ -154,13 +159,13 @@ class AppController:
                 4,
                 image=self.control_images["previous"],
                 action=self.carousel_previous,
-                long_press_action=(self.carousel_previous, 0.3),
+                long_press_action=(self.carousel_previous, CAROUSEL_REPEAT_INTERVAL),
             )
             self.deck_controller.set_button(
                 5,
                 image=self.control_images["next"],
                 action=self.carousel_next,
-                long_press_action=(self.carousel_next, 0.3),
+                long_press_action=(self.carousel_next, CAROUSEL_REPEAT_INTERVAL),
             )
 
     def setup_now_playing_button(self) -> None:
