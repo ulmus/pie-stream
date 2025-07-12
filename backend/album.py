@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Literal
 
 import eyed3  # type: ignore
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 from .constants import CONTROL_BUTTON_MARGINS, PAUSE_ICON, PLAY_ICON, STOP_ICON
 from .streamdeck import StreamDeckController
@@ -195,7 +195,15 @@ def read_albums_from_path(path: Path, deck: StreamDeckController) -> list[Album]
                     break
             tracks = sorted(
                 track
-                for ext in ("*.mp3", "*.aiff", "*.ogg", "*.mp4", "*.aac")
+                for ext in (
+                    "*.mp3",
+                    "*.aiff",
+                    "*.ogg",
+                    "*.mp4",
+                    "*.aac",
+                    "*.m4a",
+                    "*.flac",
+                )
                 for track in album_path.glob(ext)
             )
             if not tracks:
@@ -211,13 +219,43 @@ def read_albums_from_path(path: Path, deck: StreamDeckController) -> list[Album]
                 album_name = tagged_file.tag.album or album_path.name
             else:
                 album_name = album_path.name
+            # Determine album art: file or generated fallback
+            if album_art_file_name:
+                album_art_image = Image.open(album_art_file_name)
+            else:
+                # Generate fallback artwork using album name text
+                size = (300, 300)
+                # type: ignore
+                album_art_image = Image.new("RGB", size, color="gray")  # type: ignore
+                draw = ImageDraw.Draw(album_art_image)
+                # Load a suitable font for drawing text
+                try:
+                    font = ImageFont.truetype(
+                        str(
+                            Path(__file__).parent
+                            / "fonts"
+                            / "Roboto_Condensed-Bold.ttf"
+                        ),
+                        24,
+                    )
+                except Exception:
+                    font = ImageFont.load_default()  # type: ignore
+                text = album_name
+                # Compute text size using textbbox for proper centering
+                bbox = draw.textbbox((0, 0), text, font=font)
+                w = bbox[2] - bbox[0]
+                h = bbox[3] - bbox[1]
+                draw.text(
+                    ((size[0] - w) / 2, (size[1] - h) / 2),
+                    text,
+                    fill="black",
+                    font=font,
+                )
             album = Album(
                 name=album_name,
                 path=str(album_path),
                 deck=deck,
-                album_art=Image.open(album_art_file_name)
-                if album_art_file_name
-                else None,
+                album_art=album_art_image,
                 type="album",  # Default type, can be changed later
                 tracks=[],
             )
