@@ -186,11 +186,13 @@ def read_albums_from_path(path: Path, deck: StreamDeckController) -> list[Album]
 
     for album_path in path.iterdir():
         if album_path.is_dir():
-            album_art_file_name = next(
-                (f for f in album_path.glob("*.jpg"))
-                or (f for f in album_path.glob("*.png")),
-                None,
-            )
+            # Find the first image file (jpg, jpeg, or png) in the album directory for album art
+            album_art_file_name = None
+            for ext in ("*.jpg", "*.jpeg", "*.png", "*.JPG", "*.JPEG", "*.PNG"):
+                found = list(album_path.glob(ext))
+                if found:
+                    album_art_file_name = found[0]
+                    break
             tracks = sorted(
                 track
                 for ext in ("*.mp3", "*.aiff", "*.ogg", "*.mp4", "*.aac")
