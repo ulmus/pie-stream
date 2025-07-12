@@ -191,10 +191,14 @@ def read_albums_from_path(path: Path, deck: StreamDeckController) -> list[Album]
                 or (f for f in album_path.glob("*.png")),
                 None,
             )
-            tracks = sorted(album_path.glob("*.mp3"))
+            tracks = sorted(
+                track
+                for ext in ("*.mp3", "*.aiff", "*.ogg", "*.mp4", "*.aac")
+                for track in album_path.glob(ext)
+            )
             if not tracks:
                 logger.warning(
-                    f"No MP3 tracks found in album {album_path.name}. Skipping."
+                    f"No audio tracks found in album {album_path.name}. Skipping."
                 )
                 continue
             # Use eyed3 to read metadata of first track for album name and album art
