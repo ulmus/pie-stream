@@ -3,9 +3,10 @@ import logging
 import threading
 from time import sleep
 
-from PIL import Image  # type: ignore
+from PIL import Image
 
 from .album import Album, read_albums_from_path
+from .cd_ripper import start_cd_ripper  # type: ignore
 from .constants import (
     CAROUSEL_REPEAT_INTERVAL,
     CAROUSEL_RESET_TIMEOUT,
@@ -75,6 +76,7 @@ class AppController:
         self.setup_media_buttons()
         self.setup_control_buttons()
         self.setup_now_playing_button()
+        start_cd_ripper()
         logger.info("Application initialized successfully.")
 
     def cleanup(self) -> None:
