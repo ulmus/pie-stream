@@ -66,6 +66,18 @@ class Track:
         else:
             logger.warning(f"No artwork available for track {self.name}.")
 
+    def set_name(self) -> None:
+        """Set the name of the track from ID3 metadata."""
+        try:
+            tagged_file = eyed3.load(self.path)
+            if tagged_file and tagged_file.tag:
+                self.name = tagged_file.tag.title or Path(self.path).stem
+            else:
+                self.name = Path(self.path).stem
+        except Exception as e:
+            logger.error(f"Error reading ID3 metadata for {self.path}: {e}")
+            self.name = Path(self.path).stem
+
 
 class Album:
     """Class representing an album with its metadata and artwork."""
