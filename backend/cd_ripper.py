@@ -8,7 +8,6 @@ from pathlib import Path
 
 import musicbrainzngs  # type: ignore
 import requests
-import vlc  # type: ignore
 
 from .constants import MUSIC_PATH
 
@@ -33,7 +32,7 @@ def is_audio_cd(mount_point: Path) -> bool:
     On Raspberry Pi OS (and most Linux) they mount as an iso9660 with no files.
     """
     if SYSTEM == "Darwin":
-        return mount_point.is_dir() and any(mount_point.glob("*.cda"))
+        return mount_point.is_dir() and any(mount_point.glob("*.aiff"))
     else:  # Linux
         return mount_point.is_dir() and not any(mount_point.iterdir())
 
@@ -50,7 +49,11 @@ def get_device_node(mount_point: Path) -> str | None:
             )
             for line in out.splitlines():
                 if line.strip().startswith("Device Node:"):
-                    return line.split(":", 1)[1].strip()
+                    # use raw device for VLC (e.g. /dev/rdisk5)
+                    dev = line.split(":", 1)[1].strip()
+                    if dev.startswith("/dev/disk"):
+                        dev = dev.replace("/dev/disk", "/dev/rdisk", 1)
+                    return dev
         else:  # Linux
             out = subprocess.check_output(
                 ["findmnt", "-n", "-o", "SOURCE", "--target", str(mount_point)],
@@ -63,53 +66,23 @@ def get_device_node(mount_point: Path) -> str | None:
     return None
 
 
-def get_track_count() -> int:
+def rip_cd_with_abcde(target_dir: Path) -> None:
     """
-    macOS: use `drutil status`
-    Linux: use `cdparanoia -Q` and count 'track' lines
+    Rip all tracks using abcde → OGG, tags from CDDB, then eject.
     """
+    # abcde on macOS doesn’t accept --output-dir, so just cd there
+    orig_cwd = Path.cwd()
     try:
-        if SYSTEM == "Darwin":
-            out = subprocess.check_output(["drutil", "status"], text=True)
-            for line in out.splitlines():
-                if "Track count:" in line:
-                    return int(line.split(":", 1)[1])
-        else:  # Linux
-            out = subprocess.check_output(
-                ["cdparanoia", "-Q"], text=True, stderr=subprocess.DEVNULL
-            )
-            return sum(
-                1 for line in out.splitlines() if line.strip().startswith("track")
-            )
-    except subprocess.SubprocessError as e:
-        logger.error(f"Error getting track count: {e}")
-    return 0
-
-
-def rip_cd_with_vlc(device: str, track: int, target_dir: Path) -> None:
-    """
-    Rip a single track from the given device using python-vlc,
-    transcode to 128kbps OGG, and write to target_dir/trackNN.ogg.
-    """
-    inst = vlc.Instance()
-    if inst is None:
-        raise RuntimeError("VLC instance creation failed")
-    player = inst.media_player_new()
-
-    dst = target_dir / f"track{track:02d}.ogg"
-    media = inst.media_new(
-        f"cdda:///{device}",
-        f"cdda-toc-button={track}",
-        f"sout=#transcode{{acodec=vorb,ab=128,channels=2}}:std{{access=file,mux=ogg,dst={dst}}}",
-    )
-    player.set_media(media)
-    player.play()
-
-    # wait until track is done
-    while player.get_state() not in (vlc.State.Ended, vlc.State.Error):  # type: ignore
-        time.sleep(0.5)
-    player.stop()
-    logger.info(f"Ripped track {track} → {dst}")
+        os.chdir(target_dir)
+        cmd = [
+            "abcde",
+            "-o",
+            "ogg",  # output format
+            "-x",  # eject when done
+        ]
+        subprocess.run(cmd, check=True)
+    finally:
+        os.chdir(orig_cwd)
 
 
 def fetch_album_art(album_name: str, target_dir: Path) -> None:
@@ -155,25 +128,13 @@ def rip_cd(mount_point: Path) -> None:
         logger.error(f"Could not determine device node for CD at {mount_point}")
         return
 
-    num_tracks = get_track_count()
-    if num_tracks <= 0:
-        logger.error("No tracks found on CD")
-        return
-
-    logger.info(f"Ripping CD '{album_name}' ({num_tracks} tracks) on {device}")
-    for t in range(1, num_tracks + 1):
-        try:
-            rip_cd_with_vlc(device, t, target_dir)
-        except Exception as e:
-            logger.error(f"Error ripping track {t}: {e}")
-
-    # Eject the CD
+    logger.info(f"Ripping CD '{album_name}' with abcde → {target_dir}")
     try:
-        cmd = ["drutil", "tray", "eject"] if SYSTEM == "Darwin" else ["eject"]
-        subprocess.run(cmd, check=False)
-        logger.info(f"Ejected CD '{album_name}'")
-    except Exception as e:
-        logger.error(f"Failed to eject CD: {e}")
+        rip_cd_with_abcde(target_dir)
+        fetch_album_art(album_name, target_dir)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"abcde ripping failed: {e}")
+    return
 
 
 def monitor_cd() -> None:
@@ -187,8 +148,13 @@ def monitor_cd() -> None:
         new = current - seen
         for vol in new:
             mount_point = VOLUMES_DIR / vol
+            logger.info(f"Detected new volume: {mount_point}")
             if is_audio_cd(mount_point):
-                rip_cd(mount_point)
+                logger.info(f"Detected audio CD: {mount_point}")
+                try:
+                    rip_cd(mount_point)
+                except Exception as e:
+                    logger.error(f"Failed to rip CD '{mount_point}': {e}")
         seen = current
         time.sleep(5)
 

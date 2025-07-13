@@ -16,7 +16,7 @@ if [[ "$OS" == "Darwin" ]]; then
 elif [[ -f /etc/debian_version ]]; then
   # Debian/Ubuntu dependencies
   sudo apt update
-  sudo apt install -y libusb-1.0-0-dev libhidapi-dev vlc libvlc-dev
+  sudo apt install -y libusb-1.0-0-dev libhidapi-dev vlc libvlc-dev abcde cdparanoia cd-discid vorbis-tools
 else
   echo "Unsupported OS: $OS. Please install libusb, hidapi and VLC manually."
 fi
