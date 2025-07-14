@@ -79,6 +79,9 @@ def rip_cd_with_abcde(target_dir: Path) -> None:
             "-o",
             "ogg",  # output format
             "-x",  # eject when done
+            "-N",  # no confirmation
+            "-G",  # get album art
+            "-p",  # pad track numbers with zeros
         ]
         subprocess.run(cmd, check=True)
     finally:
