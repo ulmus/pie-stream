@@ -121,6 +121,9 @@ def rip_cd(mount_point: Path) -> None:
     """
     album_name = mount_point.name
     target_dir = Path(MUSIC_PATH) / album_name
+    if target_dir.exists():
+        logger.warning(f"Target directory already exists: {target_dir}")
+        return
     target_dir.mkdir(parents=True, exist_ok=True)
 
     device = get_device_node(mount_point)
@@ -167,3 +170,10 @@ def start_cd_ripper() -> threading.Thread:
     t = threading.Thread(target=monitor_cd, daemon=True)
     t.start()
     return t
+
+
+def check_if_directory_exists(path: Path) -> bool:
+    """
+    Check if the given path exists and is a directory.
+    """
+    return path.exists() and path.is_dir()
