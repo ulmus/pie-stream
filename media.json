@@ -24,5 +24,10 @@
             "path": "https://live-bauerse-fm.sharp-stream.com/nrj_instreamtest_se_mp3",
             "type": "stream"
         }
+        {
+            "name": "Historierummet",
+            "path": "https://api.sr.se/api/rss/pod/itunes/25889",
+            "type": "podcast"
+        }
     ]
 }

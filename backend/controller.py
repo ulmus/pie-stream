@@ -252,7 +252,11 @@ class AppController:
         """Play media from the specified album."""
         # Reset the current track to the first track in the album
         logger.info(f"Playing media: {album.name}")
-        if album != self.current_playing_album and self.current_playing_album:
+        if (
+            album.type != "podcast"
+            and album != self.current_playing_album
+            and self.current_playing_album
+        ):
             logger.debug("resetting current track to first track")
             self.current_playing_album.reset_current_track()
         logger.debug(f"Playing album: {album.name} at path: {album.get_path()}")

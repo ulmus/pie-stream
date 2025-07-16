@@ -1,8 +1,11 @@
+import io
 import logging
 from pathlib import Path
 from typing import Literal
 
 import eyed3  # type: ignore
+import feedparser
+import requests
 from PIL import Image, ImageDraw, ImageFont
 
 from .constants import CONTROL_BUTTON_MARGINS, PAUSE_ICON, PLAY_ICON, STOP_ICON
@@ -94,7 +97,7 @@ class Album:
         path: str,
         deck: StreamDeckController,
         album_art: Image.Image | None = None,
-        type: Literal["album", "playlist", "stream"] = "stream",
+        type: Literal["album", "playlist", "stream", "podcast"] = "stream",
         tracks: list[Track] | None = None,
     ) -> None:
         self.name = name
@@ -104,7 +107,10 @@ class Album:
         self.type = type
         self.tracks = tracks or []
         self.current_track: Track | None = None
-        self.set_artwork_images(album_art)
+        if type == "podcast":
+            self.get_podcast_tracks_from_feed(path)
+        else:
+            self.set_artwork_images(album_art)
 
     def to_dict(self) -> dict:
         return {
@@ -187,6 +193,38 @@ class Album:
         return bool(
             self.current_track and self.current_track.index == len(self.tracks) - 1
         )
+
+    def get_podcast_tracks_from_feed(self, feed_url: str) -> None:
+        """Fetch podcast tracks from a given feed URL."""
+        feed = feedparser.parse(feed_url)
+        for entry in feed.entries:
+            title = entry.title
+            audio_url = entry.enclosures[0].href if entry.enclosures else None
+            if not audio_url:
+                logger.warning(f"No audio URL found for podcast entry: {title}")
+                continue
+            # Create a Track instance and add it to the podcast's track list
+            track = Track(
+                path=str(audio_url), album=self, deck=self.deck, index=len(self.tracks)
+            )
+            self.tracks.append(track)
+        # Set album art:
+        if feed.image and feed.image.href:  # type: ignore
+            try:
+                src = feed.image.href  # type: ignore
+                if src.startswith(("http://", "https://")):
+                    resp = requests.get(src, timeout=10)
+                    resp.raise_for_status()
+                    album_art = Image.open(io.BytesIO(resp.content))
+                else:
+                    album_art = Image.open(src)
+
+                self.set_artwork_images(album_art)
+            except Exception as e:
+                logger.error(
+                    f"Error loading podcast album art from {feed.image.href}: {e}"
+                )  # type: ignore
+                self.set_artwork_images(None)
 
 
 def read_albums_from_path(path: Path, deck: StreamDeckController) -> list[Album]:
