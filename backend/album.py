@@ -127,6 +127,8 @@ class Album:
         self.current_track: Track | None = None
         if type == "podcast":
             self.get_podcast_tracks_from_feed(path)
+        # Calling artwork_bytes() to cache the artwork
+        self.artwork_bytes  # noqa: B018
 
     def to_dict(self) -> dict:
         return {
