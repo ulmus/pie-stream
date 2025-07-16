@@ -6,7 +6,6 @@ from time import sleep
 from PIL import Image
 
 from .album import Album, read_albums_from_path
-from .cd_ripper import start_cd_ripper  # type: ignore
 from .constants import (
     CAROUSEL_REPEAT_INTERVAL,
     CAROUSEL_RESET_TIMEOUT,
@@ -76,7 +75,7 @@ class AppController:
         self.setup_media_buttons()
         self.setup_control_buttons()
         self.setup_now_playing_button()
-        start_cd_ripper()
+        self.periodically_scan_for_new_albums(60)  # Scan every 60 seconds
         logger.info("Application initialized successfully.")
 
     def cleanup(self) -> None:
@@ -362,6 +361,47 @@ class AppController:
             self.current_carousel_start_index = 0
             self.setup_media_buttons()
             logger.info("Carousel reset to default position due to inactivity")
+
+    def periodically_scan_for_new_albums(self, interval: int = 60) -> None:
+        """Periodically scan for new albums in the music path using a background thread."""
+        if interval <= 0:
+            logger.error("Interval must be greater than 0.")
+            return
+        logger.info("Starting periodic scan for new albums...")
+        self.scan_for_new_albums()  # Initial scan
+        # Start a background thread to scan for new albums periodically
+        threading.Thread(
+            target=self._periodic_scan_thread, args=(interval,), daemon=True
+        ).start()
+        logger.info(f"Starting periodic scan for new albums every {interval} seconds.")
+
+    def _periodic_scan_thread(self, interval: int) -> None:
+        """Background thread for periodic scanning of new albums."""
+        while True:
+            self.scan_for_new_albums()
+            sleep(interval)
+
+    def scan_for_new_albums(self) -> None:
+        """Scan for new albums and update the album list."""
+        logger.info("Scanning for new albums...")
+        new_albums = read_albums_from_path(MUSIC_PATH, self.deck_controller)
+        if new_albums:
+            # Check for duplicates before extending the album list
+            existing_album_paths = {album.get_path() for album in self.albums}
+            new_albums = [
+                album
+                for album in new_albums
+                if album.get_path() not in existing_album_paths
+            ]
+            if not new_albums:
+                logger.info("No new albums found.")
+                return
+            self.albums.extend(new_albums)
+            self.album_count = len(self.albums)
+            self.setup_media_buttons()
+            logger.info(f"Found {len(new_albums)} new albums.")
+        else:
+            logger.info("No new albums found.")
 
 
 _app_controller: AppController | None = None
