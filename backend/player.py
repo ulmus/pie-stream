@@ -34,7 +34,7 @@ class VLCPlayer:
 
     _vlc: vlc.Instance
 
-    def __init__(self) -> None:
+    def __init__(self, on_playback_end: Callable | None = None) -> None:
         self.volume = 1.0
         self.error_message: str | None = None
 
@@ -43,6 +43,11 @@ class VLCPlayer:
             raise RuntimeError("Failed to create VLC instance")
         self.vlc = _vlc
         self.player = self.vlc.media_player_new()
+        if on_playback_end:
+            self.player.event_manager().event_attach(
+                MediaPlayerEndReached,
+                on_playback_end,
+            )
 
         # Threading
         self._playback_thread: threading.Thread | None = None
@@ -84,31 +89,35 @@ class VLCPlayer:
         """Check if the player is currently stopped"""
         return self.state == PlayerState.STOPPED
 
-    def play(self, media_ref: str, on_playback_end: Callable | None = None) -> bool:
+    def play(self, media_ref: str) -> bool:
         """Play media from URL (radio streams, preview URLs, etc.)"""
         try:
+            logger.debug(f"Attempting to play media: {media_ref}")
             if self.state == PlayerState.PLAYING:
                 self.stop()
+            logger.debug(f"Setting media: {media_ref}")
             media = self.vlc.media_new(media_ref)
+            logger.debug(f"Media set: {media_ref}")
             self.player.set_media(media)
+            logger.debug(f"Setting volume: {self.volume * 100}%")
             self.player.audio_set_volume(int(self.volume * 100))
+            logger.debug("Starting playback")
             # Start playback
             self.player.play()
             self.error_message = None
-            # Register end-of-playback callback
-            self.event_manager.event_detach(MediaPlayerEndReached)
-            if on_playback_end:
-                self.event_manager.event_attach(
-                    MediaPlayerEndReached,
-                    lambda event: on_playback_end(self, media_ref, self.state, event),
-                )
-            # Wait for playback to actually start or error/ended
+            # Wait for playback to actually start or error/ended, fail after 10 seconds
+            start_time = time.time()
             while (
                 self.state != PlayerState.PLAYING
                 and self.state != PlayerState.ERROR
                 and self.state != PlayerState.ENDED
             ):
                 time.sleep(0.1)
+                logger.debug(f"Current player state: {self.state}")
+                if time.time() - start_time > 10:
+                    self.error_message = "Playback did not start within 10 seconds."
+                    logger.error(self.error_message)
+                    return False
             # Return True only if truly playing
             if self.state == PlayerState.PLAYING:
                 return True

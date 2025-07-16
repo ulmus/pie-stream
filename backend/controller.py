@@ -35,7 +35,11 @@ class AppController:
     def __init__(self) -> None:
         self.albums: list[Album] = []
         self.deck_controller = StreamDeckController()
-        self.player = VLCPlayer()
+        self.player = VLCPlayer(
+            on_playback_end=lambda event: threading.Thread(
+                target=self.on_playback_end, daemon=True
+            ).start()
+        )
         self.album_count = 0
         self.current_carousel_start_index = 0
         self.current_playing_album: Album | None = None
@@ -79,6 +83,7 @@ class AppController:
         logger.info("Application initialized successfully.")
 
     def cleanup(self) -> None:
+        logger.info("Cleaning up application resources...")
         if self.deck_controller:
             self.deck_controller.close()
         if self.player:
@@ -246,11 +251,12 @@ class AppController:
     def play_media(self, album: Album) -> None:
         """Play media from the specified album."""
         # Reset the current track to the first track in the album
+        logger.info(f"Playing media: {album.name}")
         if album != self.current_playing_album and self.current_playing_album:
+            logger.debug("resetting current track to first track")
             self.current_playing_album.reset_current_track()
-        success = self.player.play(
-            album.get_path(), lambda p, m, s, e: self.on_playback_end(p, m, s, e)
-        )
+        logger.debug(f"Playing album: {album.name} at path: {album.get_path()}")
+        success = self.player.play(album.get_path())
         if success:
             self.current_playing_album = album
             self.setup_now_playing_button()
@@ -316,9 +322,9 @@ class AppController:
                 logger.info(f"Playing media: {album.name}")
                 self.play_media(album)
 
-    def on_playback_end(self, player, media_ref, state, event) -> None:
+    def on_playback_end(self) -> None:
         """Handle playback end event."""
-        logger.info(f"Playback ended for media: {media_ref} with state: {state}")
+        logger.info("Playback ended, handling end of playback.")
         if self.current_playing_album:
             if self.current_playing_album.current_track_is_last():
                 logger.info(
@@ -329,6 +335,10 @@ class AppController:
                 # If not the last track, move to the next track
                 logger.info("Moving to the next track in the album.")
                 self.current_playing_album.next_track()
+                logger.info(
+                    f"Playing next track: {self.current_playing_album.get_path()}"
+                )
+                # Play the next track in the album
                 self.play_media(self.current_playing_album)
         else:
             logger.warning("No current playing album to handle playback end.")
