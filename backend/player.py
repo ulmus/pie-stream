@@ -92,24 +92,27 @@ class VLCPlayer:
             media = self.vlc.media_new(media_ref)
             self.player.set_media(media)
             self.player.audio_set_volume(int(self.volume * 100))
+            # Start playback
             self.player.play()
             self.error_message = None
-            while (
-                self.state != PlayerState.PLAYING
-                and self.state != PlayerState.ERROR
-                and self.state != PlayerState.ENDED
-                and self.state != PlayerState.OPENING
-            ):
-                # Wait for the player to open the media
-                time.sleep(0.1)
-            if self.state == PlayerState.PLAYING or self.state == PlayerState.OPENING:
-                return True
+            # Register end-of-playback callback
             self.event_manager.event_detach(MediaPlayerEndReached)
             if on_playback_end:
                 self.event_manager.event_attach(
                     MediaPlayerEndReached,
                     lambda event: on_playback_end(self, media_ref, self.state, event),
                 )
+            # Wait for playback to actually start or error/ended
+            while (
+                self.state != PlayerState.PLAYING
+                and self.state != PlayerState.ERROR
+                and self.state != PlayerState.ENDED
+            ):
+                time.sleep(0.1)
+            # Return True only if truly playing
+            if self.state == PlayerState.PLAYING:
+                return True
+            # Playback failed to start
             self.error_message = f"Playback did not start successfully: {self.state}"
             return False
 
