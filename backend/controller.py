@@ -75,7 +75,7 @@ class AppController:
         self.setup_media_buttons()
         self.setup_control_buttons()
         self.setup_now_playing_button()
-        self.periodically_scan_for_new_albums(60)  # Scan every 60 seconds
+        # self.periodically_scan_for_new_albums(60)  # Scan every 60 seconds
         logger.info("Application initialized successfully.")
 
     def cleanup(self) -> None:
