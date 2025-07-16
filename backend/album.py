@@ -1,5 +1,6 @@
 import io
 import logging
+from hashlib import md5
 from pathlib import Path
 from typing import Literal
 
@@ -18,7 +19,12 @@ class Track:
     """Class representing a track with its metadata."""
 
     def __init__(
-        self, path: str, album: "Album", deck: StreamDeckController, index: int
+        self,
+        path: str,
+        album: "Album",
+        deck: StreamDeckController,
+        index: int,
+        track_artwork: Image.Image | None = None,
     ) -> None:
         self.path = path
         self.name = Path(
@@ -27,6 +33,7 @@ class Track:
         self.album = album  # Will be set when added to an album
         self.index = index  # Track index in the album
         self.deck = deck
+        self.track_artwork = track_artwork
         self.play_image: bytes | None = None
         self.pause_image: bytes | None = None
         self.stop_image: bytes | None = None
@@ -44,23 +51,24 @@ class Track:
     def set_images(self) -> None:
         """Set the play image for the track."""
         label = f"{self.index + 1:02d}"  # Display track index starting from 1
-        if self.album.artwork_pil_image:
+        artwork_image = self.track_artwork or self.album.artwork_pil_image
+        if artwork_image:
             self.play_image = self.deck.convert_image(
-                self.album.artwork_pil_image,
+                artwork_image,
                 margins=CONTROL_BUTTON_MARGINS,
                 background="teal",
                 icon=PLAY_ICON,
                 label=label,
             )
             self.pause_image = self.deck.convert_image(
-                self.album.artwork_pil_image,
+                artwork_image,
                 margins=CONTROL_BUTTON_MARGINS,
                 background="teal",
                 icon=PAUSE_ICON,
                 label=label,
             )
             self.stop_image = self.deck.convert_image(
-                self.album.artwork_pil_image,
+                artwork_image,
                 margins=CONTROL_BUTTON_MARGINS,
                 background="teal",
                 icon=STOP_ICON,
@@ -196,35 +204,31 @@ class Album:
 
     def get_podcast_tracks_from_feed(self, feed_url: str) -> None:
         """Fetch podcast tracks from a given feed URL."""
-        feed = feedparser.parse(feed_url)
-        for entry in feed.entries:
+        parsed = feedparser.parse(feed_url)
+        if parsed.feed.image and parsed.feed.image.href:  # type: ignore
+            self.album_art = get_pil_image_from_url(parsed.feed.image.href)  # type: ignore
+            self.set_artwork_images(self.album_art)
+        for entry in parsed.entries:
             title = entry.title
             audio_url = entry.enclosures[0].href if entry.enclosures else None
             if not audio_url:
                 logger.warning(f"No audio URL found for podcast entry: {title}")
                 continue
             # Create a Track instance and add it to the podcast's track list
+            track_artwork = (
+                get_pil_image_from_url(entry.image.href) if entry.image else None
+            )  # type: ignore
             track = Track(
-                path=str(audio_url), album=self, deck=self.deck, index=len(self.tracks)
+                path=str(audio_url),
+                album=self,
+                deck=self.deck,
+                index=len(self.tracks),
+                track_artwork=track_artwork,
             )
             self.tracks.append(track)
         # Set album art:
-        if feed.image and feed.image.href:  # type: ignore
-            try:
-                src = feed.image.href  # type: ignore
-                if src.startswith(("http://", "https://")):
-                    resp = requests.get(src, timeout=10)
-                    resp.raise_for_status()
-                    album_art = Image.open(io.BytesIO(resp.content))
-                else:
-                    album_art = Image.open(src)
 
-                self.set_artwork_images(album_art)
-            except Exception as e:
-                logger.error(
-                    f"Error loading podcast album art from {feed.image.href}: {e}"
-                )  # type: ignore
-                self.set_artwork_images(None)
+        self.reset_current_track()
 
 
 def read_albums_from_path(path: Path, deck: StreamDeckController) -> list[Album]:
@@ -323,3 +327,29 @@ def read_albums_from_path(path: Path, deck: StreamDeckController) -> list[Album]
             albums.append(album)
 
     return albums
+
+
+def get_pil_image_from_url(url: str) -> Image.Image | None:
+    """Fetch an image from a URL and return it as a PIL Image."""
+    # Check cache first
+    cache_file_name = md5(url.encode()).hexdigest()
+    cache_path = Path("./cache") / f"{cache_file_name}.png"
+    if cache_path.exists():
+        try:
+            return Image.open(cache_path)
+        except Exception as e:
+            logger.error(f"Error opening cached image {cache_path}: {e}")
+            cache_path.unlink()
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        image = Image.open(io.BytesIO(response.content))
+        # Save to cache
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        image.save(cache_path, format="PNG")
+        logger.info(f"Image fetched and cached: {cache_path}")
+        # Return the image
+        return image
+    except Exception as e:
+        logger.error(f"Error fetching image from {url}: {e}")
+        return None

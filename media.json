@@ -23,10 +23,15 @@
             "artwork": "./album_art/nrj.png",
             "path": "https://live-bauerse-fm.sharp-stream.com/nrj_instreamtest_se_mp3",
             "type": "stream"
-        }
+        },
         {
             "name": "Historierummet",
             "path": "https://api.sr.se/api/rss/pod/itunes/25889",
+            "type": "podcast"
+        },
+        {
+            "name": "Rollspelshörnan",
+            "path": "https://anchor.fm/s/5ddb6bec/podcast/rss",
             "type": "podcast"
         }
     ]

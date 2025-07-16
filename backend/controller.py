@@ -143,7 +143,7 @@ class AppController:
         """Set up control buttons for the Stream Deck."""
         if (
             self.current_playing_album
-            and self.current_playing_album.type == "album"
+            and self.current_playing_album.type in ["album", "podcast"]
             and self.player.is_playing
         ):
             # If the current playing album is an album and is playing, set up next/previous track buttons
@@ -228,7 +228,10 @@ class AppController:
     @start_carousel_decorator
     def play_next_track(self) -> None:
         """Play the next track in the current album."""
-        if self.current_playing_album and self.current_playing_album.type == "album":
+        if self.current_playing_album and self.current_playing_album.type in [
+            "album",
+            "podcast",
+        ]:
             self.current_playing_album.next_track()
             self.play_media(self.current_playing_album)
             logger.info(f"Playing next track: {self.current_playing_album.get_path()}")
@@ -238,7 +241,10 @@ class AppController:
     @start_carousel_decorator
     def play_previous_track(self) -> None:
         """Play the previous track in the current album."""
-        if self.current_playing_album and self.current_playing_album.type == "album":
+        if self.current_playing_album and self.current_playing_album.type in [
+            "album",
+            "podcast",
+        ]:
             self.current_playing_album.previous_track()
             self.play_media(self.current_playing_album)
             logger.info(
@@ -252,11 +258,7 @@ class AppController:
         """Play media from the specified album."""
         # Reset the current track to the first track in the album
         logger.info(f"Playing media: {album.name}")
-        if (
-            album.type != "podcast"
-            and album != self.current_playing_album
-            and self.current_playing_album
-        ):
+        if album != self.current_playing_album and self.current_playing_album:
             logger.debug("resetting current track to first track")
             self.current_playing_album.reset_current_track()
         logger.debug(f"Playing album: {album.name} at path: {album.get_path()}")
